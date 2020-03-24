@@ -1,0 +1,16 @@
+# This is a configuration file for Tenable API scripts
+
+include=SlackNotify.ini
+
+# Base API URL and other base API requirements
+APIBaseURL=https://cloud.tenable.com
+
+#Tenable portal login authentication.
+AccessKey=05cc2a10e8041f5cee62413f0e2e751607f5bc881d08cf6a51e7a73845190639
+Secret=ceb7bf537a6acfff79b15af69ad101f5aa7fbb75e20d21d4ef4c99ae91e3d0d1
+
+#Slack Notification stuff
+NotificationURL=https://slack.com/api/chat.postMessage
+NotifyChannel=
+NotifyToken=
+NotifyEnabled=No

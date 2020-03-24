@@ -1,0 +1,8 @@
+# Specify filepatterns you want git to ignore.
+
+Logs/
+*.ini
+*.json
+*.zip
+*.rpm
+*.bak
