@@ -296,7 +296,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
-  dictResponse = {}
 
   LogEntry ("Doing a {} to URL: \n {}\n".format(strMethod,strURL))
   try:
@@ -337,7 +336,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 def ScannerDBUpdate(dictResults,dbConn):
   global dictScannerInGroup
 
-  dictPayload = {}
   lstInvalidTypes = []
   if "scanners" in dictResults:
     if isinstance(dictResults["scanners"],list):
@@ -411,7 +409,6 @@ def ScannerDBUpdate(dictResults,dbConn):
               elif lstReturn[0] == 0:
                 strLocation = "Unknown"
                 LogEntry ("Server {} with ID of {} not found in server table".format(strScannerName, iServerID))
-                # LogEntry ("The Query was: {}".format(strSQL))
                 SendNotification ("Server {} with ID of {} not found in server table".format(strScannerName, iServerID))
               else:
                 strLocation = lstReturn[1][0][0]
@@ -481,76 +478,7 @@ def ScannerDBUpdate(dictResults,dbConn):
                     if strTempType != "eit" and strTempType != "nmnet" and strTempType != "corenet6":
                       strScanIP = "'{}'".format(dbRow[0])
                       strScanType = "'{}'".format(strTempType)
-
-            LogEntry("IP: {} Type: {} Location: {}".format(strScanIP,strScanType, strLocation))
-            if strLocation is None:
-              strLocation = ""
-            if strScanType is None:
-              strScanType = ""
-            if strScanType != "" and strLocation != "" and strLocation.lower() != "unknown":
-              strUberGroup = "All-"+strScanType[1:-1]
-              LogEntry("Ubergroup: {}".format(strUberGroup))
-              if strLocation[:3] == "NPE":
-                strGroupName = strLocation
-              else:
-                strGroupName = strLocation + "-" + strScanType[1:-1]
-              LogEntry("GroupName: {}".format(strGroupName))
-
-              if strUberGroup in dictScanGroups:
-                iUberGroupID = dictScanGroups[strUberGroup]
-                LogEntry ("{} already exists, ID {}".format(strUberGroup,iUberGroupID))
-              else:
-                dictPayload["name"] = strUberGroup
-                dictPayload["type"] = "load_balancing"
-                strMethod = "post"
-                strAPIFunction = "scanner-groups"
-                strURL = strBaseURL + strAPIFunction
-                APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-                LogEntry ("{} didn't exists so I created it. ID: {}".format(strUberGroup,APIResponse["id"]))
-                dictScanGroups[strUberGroup] = APIResponse["id"]
-                iUberGroupID = dictScanGroups[strUberGroup]
-                dictScannerInGroup[iUberGroupID] = []
-
-              if strGroupName in dictScanGroups:
-                iGroupID = dictScanGroups[strGroupName]
-                LogEntry ("{} already exists, ID {}".format(strGroupName,iGroupID))
-              else:
-                dictPayload["name"] = strGroupName
-                dictPayload["type"] = "load_balancing"
-                strMethod = "post"
-                strAPIFunction = "scanner-groups"
-                strURL = strBaseURL + strAPIFunction
-                APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-                LogEntry ("{} didn't exists so I created it. ID: {}".format(strGroupName,APIResponse["id"]))
-                dictScanGroups[strGroupName] = APIResponse["id"]
-                iGroupID = dictScanGroups[strGroupName]
-                dictScannerInGroup[iGroupID] = []
-
-            else:
-              LogEntry("{} Has invalid type ({}) or location ({}), can't place in groups".format(strScannerName,strScanType,strLocation))
-              iGroupID = -34
-              iUberGroupID = -38
-              lstInvalidTypes.append(strScannerName)
-
-            if iUberGroupID > 0:
-              if iScannerID in dictScannerInGroup[iUberGroupID]:
-                LogEntry("Scanner already in group, nothing to do")
-              else:
-                strMethod = "post"
-                strAPIFunction = "scanner-groups/{}/scanners/{}".format(iUberGroupID,iScannerID)
-                strURL = strBaseURL + strAPIFunction
-                APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-                LogEntry("Assigned {} to group {}. Response: {}".format(strScriptName,strGroupName,APIResponse))
-            if iGroupID > 0:
-              if iScannerID in dictScannerInGroup[iGroupID]:
-                LogEntry("Scanner already in group, nothing to do")
-              else:
-                strMethod = "post"
-                strAPIFunction = "scanner-groups/{}/scanners/{}".format(iGroupID,iScannerID)
-                strURL = strBaseURL + strAPIFunction
-                APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-                LogEntry("Assigned {} to group {}. Response: {}".format(strScriptName,strGroupName,APIResponse))
-
+                      
             if "creation_date" in dictScan:
               strCreateddt = "'{}'".format(formatUnixDate(dictScan["creation_date"]))
             else:
@@ -635,8 +563,7 @@ def ScannerDBUpdate(dictResults,dbConn):
                   strAltSource, strScanIP, strScanType, strLocation, iScannerID))
             else:
               LogEntry ("Something is horrible wrong,"
-                " there are {} scanners with id of {}".format(iScannerID),True)
-            # LogEntry (strSQL)
+                " there are {} scanners with id of {}".format(lstReturn[0],iScannerID),True)
             lstReturn = SQLQuery (strSQL,dbConn)
             if not ValidReturn(lstReturn):
               LogEntry ("Unexpected: {}".format(lstReturn))
@@ -696,7 +623,7 @@ def ScanGroupDBUpdate(dictResults, dbConn):
             " WHERE iGroupID = {};".format(strGroupName, iGroupID))
         else:
           LogEntry ("Something is horrible wrong,"
-            " there are {} groups with id of {}".format(iGroupID),True)
+            " there are {} groups with id of {}".format(lstReturn[0],iGroupID),True)
         lstReturn = SQLQuery (strSQL,dbConn)
         if not ValidReturn(lstReturn):
           LogEntry ("Unexpected: {}".format(lstReturn))
@@ -788,7 +715,6 @@ def main():
     strLogDir += "/"
   if strOutDir[-1:] != "/":
     strOutDir += "/"
-  # strConf_File = strBaseDir + "TenableConfig.ini"
   iLoc = sys.argv[0].rfind(".")
   strConf_File = sys.argv[0][:iLoc] + ".ini"
 
@@ -818,15 +744,12 @@ def main():
   dbConn = ""
   dbConn = SQLConn (strServer,strDBUser,strDBPWD,strInitialDB)
 
-  dictResults={}
   strMethod = "get"
 
   strAPIFunction = "scanner-groups"
   strURL = strBaseURL + strAPIFunction
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   ScanGroupDBUpdate(APIResponse,dbConn)
-
-#  Scanner2Group(dbConn)
 
   strAPIFunction = "scanners"
   strURL = strBaseURL + strAPIFunction
@@ -837,8 +760,6 @@ def main():
   strURL = strBaseURL + strAPIFunction
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   ScanGroupDBUpdate(APIResponse,dbConn)
-
-  Scanner2Group(dbConn)
 
   dtNow = time.asctime()
   LogEntry ("Completed at {}".format(dtNow))
