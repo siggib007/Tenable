@@ -19,7 +19,7 @@ import pymysql
 # End imports
 
 #avoid insecure warning
-# requests.packages.urllib3.disable_warnings()
+requests.packages.urllib3.disable_warnings()
 
 #Define few things
 iTimeOut = 120
@@ -337,7 +337,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
       LogEntry ("Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99]))
 
 def ScannerDBUpdate(dictResults,dbConn):
-  global dictScannerInGroup
 
   lstInvalidTypes = []
   if "scanners" in dictResults:
@@ -649,16 +648,20 @@ def ScanGroupDBUpdate(dictResults, dbConn):
 
 
 def Scanner2Group(dbConn):
-  global dictScannerInGroup
-
-  dictScannerInGroup = {}
   LogEntry("fetching all scanner members for all the defined groups")
-  strSQL = "select * from tblTNBLScanGroups;"
+  # strSQL = "select * from tblTNBLScanGroups;"
 
   for strGroupName in dictScanGroups:
     iGroupID = dictScanGroups[strGroupName]
-    dictScannerInGroup[iGroupID] = []
     LogEntry ("Working on group {} {}".format(iGroupID,strGroupName))
+    strSQL = "delete from tblTNBLScan2Group where iGroupID = {};".format(iGroupID)
+    lstReturn = SQLQuery (strSQL,dbConn)
+    if not ValidReturn(lstReturn):
+      LogEntry ("Unexpected: {}".format(lstReturn))
+      CleanExit("due to unexpected SQL return, please check the logs")
+    else:
+      LogEntry ("Deleted {} group mappings".format(lstReturn[0]))
+
     strAPIFunction = "scanner-groups/{}/scanners".format(iGroupID)
     strMethod = "get"
 
@@ -675,15 +678,6 @@ def Scanner2Group(dbConn):
                 " abort, abort abort.".format(iScannerID),True)
           else:
             iScannerID = "NULL"
-          LogEntry("Group ID {} Scanner ID {}. ".format(iGroupID, iScannerID))
-          dictScannerInGroup[iGroupID].append(iScannerID)
-          strSQL = "delete from tblTNBLScan2Group where iGroupID = {};".format(iGroupID)
-          lstReturn = SQLQuery (strSQL,dbConn)
-          if not ValidReturn(lstReturn):
-            LogEntry ("Unexpected: {}".format(lstReturn))
-            CleanExit("due to unexpected SQL return, please check the logs")
-          else:
-            LogEntry ("Deleted {} group mappings".format(lstReturn[0]))
           LogEntry ("Adding {} : {}".format(iGroupID, iScannerID))
           strSQL = ("INSERT INTO tblTNBLScan2Group (iGroupID, iScannerID, dtAPIUpdate)"
             " VALUES ({}, {}, now());".format(iGroupID, iScannerID))
@@ -769,6 +763,8 @@ def main():
   strURL = strBaseURL + strAPIFunction
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   ScanGroupDBUpdate(APIResponse,dbConn)
+
+  Scanner2Group(dbConn)
 
   dtNow = time.asctime()
   LogEntry ("Completed at {}".format(dtNow))
