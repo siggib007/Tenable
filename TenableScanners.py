@@ -691,7 +691,7 @@ def ScanGroupDBUpdate(dictResults, dbConn):
           strSQL = ("INSERT INTO tblTNBLScanGroups (iGroupID, vcGroupName,dtLastAPIUpdate)"
             " VALUES ({}, {}, now());".format(iGroupID, strGroupName))
         elif lstReturn[0] == 1:
-          LogEntry ("Scanner {} exists, need to update it".format(strGroupName))
+          LogEntry ("Scanner group {} exists, need to update it".format(strGroupName))
           strSQL = ("UPDATE tblTNBLScanGroups SET vcGroupName = {}, dtLastAPIUpdate = now()"
             " WHERE iGroupID = {};".format(strGroupName, iGroupID))
         else:
@@ -706,7 +706,6 @@ def ScanGroupDBUpdate(dictResults, dbConn):
           LogEntry ("Records affected {}, expected 1 record affected".format(lstReturn[0]))
         else:
           LogEntry ("{} complete".format(strGroupName))
-
     else:
       LogEntry("Scanner pools isn't a list???? it is a {}".format(type(dictResults["scanner_pools"])))
   else:
@@ -803,8 +802,7 @@ def main():
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
   dictPayload = {}
   strScriptHost = platform.node().upper()
-  if strScriptHost == "DEV-APS-RHEL-STD-A":
-    strScriptHost = "VMSAWS01"
+
 
   print ("This is a script to download a list of all Tenable scanners information via API. This is running under Python Version {}".format(strVersion))
   print ("Running from: {}".format(strRealPath))
@@ -828,7 +826,7 @@ def main():
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   ScanGroupDBUpdate(APIResponse,dbConn)
 
-  Scanner2Group(dbConn)
+#  Scanner2Group(dbConn)
 
   strAPIFunction = "scanners"
   strURL = strBaseURL + strAPIFunction
