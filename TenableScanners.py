@@ -19,7 +19,7 @@ import pymysql
 # End imports
 
 #avoid insecure warning
-requests.packages.urllib3.disable_warnings()
+# requests.packages.urllib3.disable_warnings()
 
 #Define few things
 iTimeOut = 120
