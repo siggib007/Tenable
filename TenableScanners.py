@@ -19,12 +19,15 @@ import pymysql
 # End imports
 
 #avoid insecure warning
-requests.packages.urllib3.disable_warnings()
+# requests.packages.urllib3.disable_warnings()
 
 #Define few things
 iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
+tLastCall = None
+iTotalSleep = None
+
 
 def SendNotification (strMsg):
   if not bNotifyEnabled:
@@ -478,7 +481,13 @@ def ScannerDBUpdate(dictResults,dbConn):
                     if strTempType != "eit" and strTempType != "nmnet" and strTempType != "corenet6":
                       strScanIP = "'{}'".format(dbRow[0])
                       strScanType = "'{}'".format(strTempType)
-                      
+            if "ip_addresses" in dictScan:
+              if isinstance(dictScan["ip_addresses"],list):
+                strIPList = "'{}'".format(" | ".join(dictScan["ip_addresses"]))
+              else:
+                strIPList = "NULL"
+            else:
+              strIPList = "NULL"        
             if "creation_date" in dictScan:
               strCreateddt = "'{}'".format(formatUnixDate(dictScan["creation_date"]))
             else:
@@ -542,13 +551,13 @@ def ScannerDBUpdate(dictResults,dbConn):
               strSQL = ("INSERT INTO tblTNBLscanners (iScannerID, dtCreated,"
                 " vcDistro, dtLastConnect, dtLastModified, vcPluginSet, vcName,"
                 " vcPlatform, vcType, vcUIbuild, vcUIversion, vcUUID, vcRemoteUUID,"
-                " vcStatus, iServerID,iAltServerID,vcAltServerSource, vcScanIP,"
+                " vcStatus, iServerID, iAltServerID, vcAltServerSource, vcScanIP, vcIPList"
                 " vcScanType, vcLocation, dtLastAPIUpdate)"
                 " VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},"
-                " {}, {}, {},{},{}, {}, now());".format(iScannerID, strCreateddt, strDistro, strLastConnDT,
+                " {}, {}, {}, {}, {}, {}, {}, now());".format(iScannerID, strCreateddt, strDistro, strLastConnDT,
                   strLastModDT, strPluginSet, strScannerName, strPlatform, strType, strUIBuild,
                   strUIVersion, strUUID, strRemoteUUID, strStatus, iServerID, iAltServerID, strAltSource,
-                  strScanIP, strScanType, strLocation))
+                  strScanIP, strIPList, strScanType, strLocation))
             elif lstReturn[0] == 1:
               LogEntry ("Scanner {} exists, need to update it".format(strScannerName))
               strSQL = ("UPDATE tblTNBLscanners SET dtCreated = {}, vcDistro = {},"
@@ -556,11 +565,11 @@ def ScannerDBUpdate(dictResults,dbConn):
                 " vcName = {}, vcPlatform = {}, vcType = {}, vcUIbuild = {},"
                 " vcUIversion = {}, vcUUID = {}, vcRemoteUUID = {}, vcStatus = {},"
                 " iServerID = {}, iAltServerID = {}, vcAltServerSource = {},"
-                " vcScanIP = {}, vcScanType = {}, vcLocation = {}, dtLastAPIUpdate = now()"
+                " vcScanIP = {}, vcIPList = {}, vcScanType = {}, vcLocation = {}, dtLastAPIUpdate = now()"
                 " WHERE iScannerID = {};".format(strCreateddt, strDistro, strLastConnDT,
                   strLastModDT, strPluginSet, strScannerName, strPlatform, strType, strUIBuild,
                   strUIVersion, strUUID, strRemoteUUID, strStatus, iServerID, iAltServerID,
-                  strAltSource, strScanIP, strScanType, strLocation, iScannerID))
+                  strAltSource, strScanIP, strIPList, strScanType, strLocation, iScannerID))
             else:
               LogEntry ("Something is horrible wrong,"
                 " there are {} scanners with id of {}".format(lstReturn[0],iScannerID),True)
