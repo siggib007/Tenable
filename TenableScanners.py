@@ -550,7 +550,7 @@ def ScannerDBUpdate(dictResults,dbConn):
               strSQL = ("INSERT INTO tblTNBLscanners (iScannerID, dtCreated,"
                 " vcDistro, dtLastConnect, dtLastModified, vcPluginSet, vcName,"
                 " vcPlatform, vcType, vcUIbuild, vcUIversion, vcUUID, vcRemoteUUID,"
-                " vcStatus, iServerID, iAltServerID, vcAltServerSource, vcScanIP, vcIPList"
+                " vcStatus, iServerID, iAltServerID, vcAltServerSource, vcScanIP, vcIPList,"
                 " vcScanType, vcLocation, dtLastAPIUpdate)"
                 " VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},"
                 " {}, {}, {}, {}, {}, {}, {}, now());".format(iScannerID, strCreateddt, strDistro, strLastConnDT,
