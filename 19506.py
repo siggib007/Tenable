@@ -33,6 +33,12 @@ def getInput(strPrompt):
 def LogEntry(strMsg):
   print (strMsg)
 
+def CleanStr(strOld):
+  strTemp = strOld.replace('"','')
+  strTemp = strOld.replace(',','')
+  strTemp = strOld.replace('\n','')
+  return strTemp
+
 def isInt (CheckValue):
   # function to safely check if a value can be interpreded as an int
   if isinstance(CheckValue,int):
@@ -49,6 +55,7 @@ def main():
   # Initialize stuff
   strDelim = ","          # what is the field seperate in the input file
   strCSVName = ""
+  objOutFile = open("/temp/19506stats.csv","w",1)
   #Start doing stuff
   print ("This is a script to parse the output from Tenable Plugin ID 19506. This is running under Python Version {0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2]))
   now = time.asctime()
@@ -100,7 +107,7 @@ def main():
         # print (strLine)
         strLineParts = strLine.split(": ")
         if len(strLineParts) > 1:
-          lstHeaders.append(strLineParts[0])
+          lstHeaders.append(CleanStr(strLineParts[0]))
           if strLineParts[0].strip() == "Scan duration":
             iScanDur = int(strLineParts[1][:-4])
             iTotalScan += iScanDur
@@ -109,12 +116,16 @@ def main():
             if isInt(strLineParts[1]):
               lstStats.append(int(strLineParts[1]))
             else:
-              lstStats.append(strLineParts[1])
+              lstStats.append(CleanStr(strLineParts[1]))
       if iLineCount == 0:
-        print ("{}".format(lstHeaders))
-      print ("{}".format(lstStats))
+        # print ("{}".format(lstHeaders))
+        objOutFile.write("{}\n".format(",".join(lstHeaders)))
+      # print ("{}".format(lstStats))
+      objOutFile.write("{}\n".format(",".join(lstStats)))
       iLineCount += 1
+      print ("Processed {} lines".format(iLineCount))
   print ("Total Lines:{}\nTotal Scan Dur:{} sec".format(iLineCount,iTotalScan))
+  objOutFile.close()
 
 
 if __name__ == '__main__':
