@@ -35,9 +35,9 @@ def LogEntry(strMsg):
 
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
-  strTemp = strOld.replace(',','')
-  strTemp = strOld.replace('\n','')
-  return strTemp
+  strTemp = strTemp.replace(',','')
+  strTemp = strTemp.replace('\n','')
+  return strTemp.strip()
 
 def isInt (CheckValue):
   # function to safely check if a value can be interpreded as an int
@@ -104,27 +104,27 @@ def main():
       del lstOutput[0]
       del lstOutput[0]
       for strLine in lstOutput:
-        # print (strLine)
         strLineParts = strLine.split(": ")
         if len(strLineParts) > 1:
           lstHeaders.append(CleanStr(strLineParts[0]))
-          if strLineParts[0].strip() == "Scan duration":
+          if strLineParts[0].strip() == "Port range":
+            strTemp = strLineParts[1].replace(",","|")
+            lstStats.append(CleanStr(strTemp))
+          elif strLineParts[0].strip() == "Scan duration":
             iScanDur = int(strLineParts[1][:-4])
             iTotalScan += iScanDur
-            lstStats.append(iScanDur)
+            lstStats.append(str(iScanDur))
           else:
-            if isInt(strLineParts[1]):
-              lstStats.append(int(strLineParts[1]))
-            else:
-              lstStats.append(CleanStr(strLineParts[1]))
+            lstStats.append(CleanStr(strLineParts[1]))
       if iLineCount == 0:
-        # print ("{}".format(lstHeaders))
         objOutFile.write("{}\n".format(",".join(lstHeaders)))
-      # print ("{}".format(lstStats))
       objOutFile.write("{}\n".format(",".join(lstStats)))
       iLineCount += 1
-      print ("Processed {} lines".format(iLineCount))
-  print ("Total Lines:{}\nTotal Scan Dur:{} sec".format(iLineCount,iTotalScan))
+      print ("Processed {} lines....".format(iLineCount),end="\r")
+  iAvgSec = iTotalScan/iLineCount
+  iAvgMin = iAvgSec/60
+  print ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {} sec per scan or {} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  objOutFile.write ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {} sec per scan or {} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
   objOutFile.close()
 
 
