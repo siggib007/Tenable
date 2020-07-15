@@ -99,16 +99,17 @@ def main():
       for strLine in lstOutput:
         # print (strLine)
         strLineParts = strLine.split(": ")
-        lstHeaders.append(strLineParts[0])
-        if strLineParts[0].strip() == "Scan duration":
-          iScanDur = int(strLineParts[1][:-4])
-          iTotalScan += iScanDur
-          lstStats.append(iScanDur)
-        else:
-          if isInt(strLineParts[1]):
-            lstStats.append(int(strLineParts[1]))
+        if len(strLineParts) > 1:
+          lstHeaders.append(strLineParts[0])
+          if strLineParts[0].strip() == "Scan duration":
+            iScanDur = int(strLineParts[1][:-4])
+            iTotalScan += iScanDur
+            lstStats.append(iScanDur)
           else:
-            lstStats.append(strLineParts[1])
+            if isInt(strLineParts[1]):
+              lstStats.append(int(strLineParts[1]))
+            else:
+              lstStats.append(strLineParts[1])
       if iLineCount == 0:
         print ("{}".format(lstHeaders))
       print ("{}".format(lstStats))
