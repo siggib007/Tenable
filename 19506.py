@@ -92,6 +92,8 @@ def main():
     myReader = csv.reader(hCSV, delimiter=strDelim)
     lstLine = next(myReader)
     lstHeaders = []
+    dictDur = {}
+    dictCount = {}
     lstHeaders.append(lstLine[0])
     lstHeaders.append(lstLine[3])
 
@@ -119,12 +121,28 @@ def main():
       if iLineCount == 0:
         objOutFile.write("{}\n".format(",".join(lstHeaders)))
       objOutFile.write("{}\n".format(",".join(lstStats)))
+      if lstStats[6] in dictCount:
+        dictCount[lstStats[6]] += 1
+      else:
+        dictCount[lstStats[6]] = 1
+      if lstStats[6] in dictDur:
+        dictDur[lstStats[6]] += iScanDur
+      else:
+        dictDur[lstStats[6]] = iScanDur
       iLineCount += 1
       print ("Processed {} lines....".format(iLineCount),end="\r")
+  for strPolicy in dictCount:
+    iAvgSec = dictDur[strPolicy]/dictCount[strPolicy]
+    iAvgMin = iAvgSec/60
+    strOut = ("Scan using '{}' count: {} duration: {} Avg Sec: {} Avg Min: {}".format(strPolicy, dictCount[strPolicy],dictDur[strPolicy],iAvgSec,iAvgMin))
+    print (strOut)
+    objOutFile.write (strOut)
+  
+  
   iAvgSec = iTotalScan/iLineCount
   iAvgMin = iAvgSec/60
-  print ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {} sec per scan or {} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
-  objOutFile.write ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {} sec per scan or {} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  print ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  objOutFile.write ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
   objOutFile.close()
 
 
