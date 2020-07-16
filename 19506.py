@@ -131,18 +131,22 @@ def main():
         dictDur[lstStats[6]] = iScanDur
       iLineCount += 1
       print ("Processed {} lines....".format(iLineCount),end="\r")
+  strOut = "\n\nScan Policy,Count,Duration,Avg Sec,Ave Min"
+  print(strOut)
+  objOutFile.write ("{}\n".format(strOut))
   for strPolicy in dictCount:
     iAvgSec = dictDur[strPolicy]/dictCount[strPolicy]
     iAvgMin = iAvgSec/60
-    strOut = ("Scan using '{}' count: {} duration: {} Avg Sec: {} Avg Min: {}".format(strPolicy, dictCount[strPolicy],dictDur[strPolicy],iAvgSec,iAvgMin))
+    strOut = ("{},{},{},{:.2f},{:.2f}".format(strPolicy, dictCount[strPolicy],dictDur[strPolicy],iAvgSec,iAvgMin))
     print (strOut)
-    objOutFile.write (strOut)
+    objOutFile.write ("{}\n".format(strOut))
   
   
   iAvgSec = iTotalScan/iLineCount
   iAvgMin = iAvgSec/60
-  print ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
-  objOutFile.write ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  strOut = ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  print (strOut)
+  objOutFile.write ("{}\n".format(strOut))
   objOutFile.close()
 
 
