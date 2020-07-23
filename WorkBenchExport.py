@@ -254,17 +254,18 @@ def main():
   dictParams["report"] = "vulnerabilities"
   dictParams["format"] = "csv"
   dictParams["chapter"] = "vuln_by_plugin"
-  dictParams["date_range"] = "0"
+  # dictParams["date_range"] = "0"
+  dictParams["plugin_ID"] = 19506
   dictParams["filter.0.quality"] = "eq"
   dictParams["filter.0.filter"] = "severity"
   dictParams["filter.0.value"] = "Info"
-  dictParams["filter.1.quality"] = "eq"
-  dictParams["filter.1.filter"] = "plugin.id"
-  dictParams["filter.1.value"] = "19506"
-  dictParams["filter.2.quality"] = "match"
-  dictParams["filter.2.filter"] = "output"
-  dictParams["filter.2.value"] = "Scan%20duration%20%3A"
-  dictParams["filter.search_type"] = "and"
+  # dictParams["filter.1.quality"] = "eq"
+  # dictParams["filter.1.filter"] = "plugin.id"
+  # dictParams["filter.1.value"] = "19506"
+  # dictParams["filter.2.quality"] = "match"
+  # dictParams["filter.2.filter"] = "output"
+  # dictParams["filter.2.value"] = "Scan%20duration%20%3A"
+  # dictParams["filter.search_type"] = "and"
 
   strFormat = "%Y-%m-%dT%H:%M:%S"
   strFileout = None
@@ -386,7 +387,7 @@ def main():
   # objFileOut.write("ID,UUID,Name,Platform,Distro,IP,PluginID,Core Build,"
   #   "Core Version,Linked On,Last Connected,Status,Groups\n")
 
-  LogEntry("Getting group ID")
+  LogEntry("Submitting query request")
   strMethod = "get"
   strAPIFunction = "workbenches/export"
   strParams = urlparse.urlencode(dictParams)
