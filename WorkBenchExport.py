@@ -403,7 +403,7 @@ def main():
   LogEntry ("Now checking the status of those downloads...")
   bFinished = False
   while not bFinished:
-    strURL = strBaseURL + strAPIFunction + "/" + iFileID + "/status"
+    strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/status"
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
     if "status" in APIResponse:
       if APIResponse["status"] == "ready":
