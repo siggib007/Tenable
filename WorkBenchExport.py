@@ -378,14 +378,11 @@ def main():
       os.makedirs(os.path.dirname(strFileout))
   LogEntry ("Output will be written to {}".format(strFileout))
 
-  # try:
-  #   objFileOut = open(strFileout,"w")
-  # except PermissionError:
-  #   LogEntry("unable to open output file {} for writing, "
-  #     "permission denied.".format(strFileout),True)
-
-  # objFileOut.write("ID,UUID,Name,Platform,Distro,IP,PluginID,Core Build,"
-  #   "Core Version,Linked On,Last Connected,Status,Groups\n")
+  try:
+    objFileOut = open(strFileout,"w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+      "permission denied.".format(strFileout),True)
 
   LogEntry("Submitting query request")
   strMethod = "get"
@@ -417,6 +414,33 @@ def main():
         time.sleep(iSecSleep)
         LogEntry ("Now checking the status of those downloads...")
 
+  strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
+
+  LogEntry ("Doing a stream GET to URL: \n {}\n".format(strURL))
+  try:
+    WebRequest = requests.get(strURL, headers=strHeader, stream=True)
+    LogEntry ("get executed")
+  except Exception as err:
+    print ("Issue with API call. {}".format(err))
+    # raise
+    sys.exit(7)
+
+  if isinstance(WebRequest,requests.models.Response)==False:
+    print ("response is unknown type")
+    sys.exit(5)
+  # end if
+  print ("call resulted in status code {}".format(WebRequest.status_code))
+  iLineNum = 1
+  for strLine in WebRequest.iter_lines():
+    if strLine:
+      try:
+        strLine = strLine.decode("ascii","ignore")
+        print ("Downloaded {} lines.".format(iLineNum),end="\r")
+        iLineNum += 1
+        objFileOut.write ("{}\n".format(strLine))
+      except Exception as err:
+        print ("Unexpected issue: {}")
+        exit()
 
 if __name__ == '__main__':
     main()
