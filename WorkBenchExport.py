@@ -18,6 +18,7 @@ import platform
 # End imports
 
 #avoid insecure warning
+
 # requests.packages.urllib3.disable_warnings()
 
 tLastCall = 0
@@ -392,16 +393,30 @@ def main():
   strURL = strBaseURL + strAPIFunction + "?" + strParams
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "file" in APIResponse:
-    print ("FileID={}".format(APIResponse["file"]))
+    LogEntry ("FileID={}".format(APIResponse["file"]))
+    iFileID = APIResponse["file"]
   else:
-    print ("Houston we have a problem:{}".format(APIResponse))
+    LogEntry ("Houston we have a problem:{}".format(APIResponse),True)
 
-  
+  LogEntry ("Giving the download {} seconds to generate.".format(iSecSleep))
+  time.sleep(iSecSleep)
+  LogEntry ("Now checking the status of those downloads...")
+  bFinished = False
+  while not bFinished:
+    strURL = strBaseURL + strAPIFunction + "/" + iFileID + "/status"
+    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+    if "status" in APIResponse:
+      if APIResponse["status"] == "ready":
+        bFinished = True
+        LogEntry ("Download is {} {}/{}.".format(
+          APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"]))
+      else:
+        LogEntry ("Status is {} {}/{} waiting additional {} seconds.".format(
+          APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"],iSecSleep))
+        time.sleep(iSecSleep)
+        LogEntry ("Now checking the status of those downloads...")
 
-  # print ("Giving the reports {} seconds to generate.".format(iSecSleep))
-  # time.sleep(iSecSleep)
-  # print ("Now checking the status of those reports...")
-  # bFinished = False
-  # while not bFinished:
-  #   print ("starting to check report completion and download completed reports")
-  #   bFinished = True
+
+if __name__ == '__main__':
+    main()
+
