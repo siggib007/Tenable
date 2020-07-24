@@ -258,13 +258,13 @@ def main():
   dictParams["filter.0.quality"] = "eq"
   dictParams["filter.0.filter"] = "severity"
   dictParams["filter.0.value"] = "Info"
-  # dictParams["filter.1.quality"] = "eq"
-  # dictParams["filter.1.filter"] = "plugin.id"
-  # dictParams["filter.1.value"] = "19506"
-  # dictParams["filter.2.quality"] = "match"
-  # dictParams["filter.2.filter"] = "output"
-  # dictParams["filter.2.value"] = "Scan%20duration%20%3A"
-  # dictParams["filter.search_type"] = "and"
+  dictParams["filter.1.quality"] = "eq"
+  dictParams["filter.1.filter"] = "plugin.id"
+  dictParams["filter.1.value"] = "19506"
+  dictParams["filter.2.quality"] = "match"
+  dictParams["filter.2.filter"] = "output"
+  dictParams["filter.2.value"] = "Scan%20duration%20%3A"
+  dictParams["filter.search_type"] = "and"
 
   strFormat = "%Y-%m-%dT%H:%M:%S"
   strFileout = None
@@ -343,6 +343,8 @@ def main():
   if strBaseURL[-1:] != "/":
     strBaseURL += "/"
 
+  if "NotifyEnabled" in dictConfig:
+    strFormat = dictConfig["DateTimeFormat"]
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
   if "OutFile" in dictConfig:
