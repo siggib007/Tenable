@@ -431,16 +431,16 @@ def main():
   # end if
   print ("call resulted in status code {}".format(WebRequest.status_code))
   iLineNum = 1
-  for strLine in WebRequest.iter_lines():
-    if strLine:
-      try:
+  try:
+    for strLine in WebRequest.iter_lines():
+      if strLine:
         strLine = strLine.decode("ascii","ignore")
         print ("Downloaded {} lines.".format(iLineNum),end="\r")
         iLineNum += 1
         objFileOut.write ("{}\n".format(strLine))
-      except Exception as err:
-        print ("Unexpected issue: {}")
-        exit()
+  except Exception as err:
+    LogEntry ("Unexpected issue: {}".format(err))
+    exit()
 
 if __name__ == '__main__':
     main()
