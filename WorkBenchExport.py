@@ -126,7 +126,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry ("It's been {} seconds since last API call".format(fDelta))
+  # LogEntry ("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
@@ -254,7 +254,7 @@ def main():
   dictParams["report"] = "vulnerabilities"
   dictParams["format"] = "csv"
   dictParams["chapter"] = "vuln_by_plugin"
-  # dictParams["date_range"] = "0"
+  dictParams["date_range"] = "0"
   dictParams["plugin_ID"] = 19506
   dictParams["filter.0.quality"] = "eq"
   dictParams["filter.0.filter"] = "severity"
