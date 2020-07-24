@@ -398,7 +398,7 @@ def main():
 
   LogEntry ("Giving the download {} seconds to generate.".format(iSecSleep))
   time.sleep(iSecSleep)
-  LogEntry ("Now checking the status of those downloads...")
+  LogEntry ("Checking the status of the download...")
   bFinished = False
   while not bFinished:
     strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/status"
@@ -412,7 +412,7 @@ def main():
         LogEntry ("Status is {} {}/{} waiting additional {} seconds.".format(
           APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"],iSecSleep))
         time.sleep(iSecSleep)
-        LogEntry ("Now checking the status of those downloads...")
+        # LogEntry ("Checking the status of the download...")
 
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
 
