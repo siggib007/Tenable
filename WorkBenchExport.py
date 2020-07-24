@@ -448,6 +448,10 @@ def main():
   except Exception as err:
     LogEntry ("Unexpected issue: {}".format(err),True)
 
+  objFileOut.close()
+  LogEntry ("Done!")
+  objLogOut.close()
+
 if __name__ == '__main__':
     main()
 
