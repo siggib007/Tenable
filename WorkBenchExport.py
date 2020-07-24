@@ -408,18 +408,18 @@ def main():
         LogEntry ("Download is ready.")
       else:
         if "progress" in APIResponse:
-          iProgress = APIResponse["progress"]
+          iProgress = float(APIResponse["progress"])
         else:
           iProgress = 0
         if "progress_total" in APIResponse:
-          iJobTotal = APIResponse["progress_total"]
+          iJobTotal = float(APIResponse["progress_total"])
         else:
           iJobTotal = 0
         if iJobTotal > 0 and iJobTotal > iProgress:
           fPercentage = iProgress / iJobTotal
         else:
           fPercentage = 0
-        LogEntry ("Status is {} {:.0%} waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
+        LogEntry ("Status is {} {:.3%} waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
         time.sleep(iSecSleep)
         # LogEntry ("Checking the status of the download...")
 
