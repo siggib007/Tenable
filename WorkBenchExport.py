@@ -426,7 +426,7 @@ def main():
           fPercentage = iProgress / iJobTotal
         else:
           fPercentage = 0
-        LogEntry ("Status is {} {:.3%} waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
+        LogEntry ("Status: {} {:.3%}. Waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
         time.sleep(iSecSleep)
 
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
