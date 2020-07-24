@@ -209,7 +209,6 @@ def processConf(strConf_File):
       if strVarName == "include":
         LogEntry ("Found include directive: {}".format(strValue))
         strValue = strValue.replace("\\","/")
-        # print (":1={}\n1:3={}".format(strValue[:1],strValue[1:3]))
         if strValue[:1] == "/" or strValue[1:3] == ":/":
           LogEntry("include directive is absolute path, using as is")
         else:
@@ -431,15 +430,13 @@ def main():
     WebRequest = requests.get(strURL, headers=strHeader, stream=True)
     LogEntry ("get executed")
   except Exception as err:
-    print ("Issue with API call. {}".format(err))
-    # raise
-    sys.exit(7)
+    LogEntry ("Issue with API call. {}".format(err),True)
 
   if isinstance(WebRequest,requests.models.Response)==False:
-    print ("response is unknown type")
-    sys.exit(5)
-  # end if
-  print ("call resulted in status code {}".format(WebRequest.status_code))
+    LogEntry ("response is unknown type",True)
+ # end if
+  LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
+  LogEntry ("Starting to stream the results to disk")
   iLineNum = 1
   try:
     for strLine in WebRequest.iter_lines():
