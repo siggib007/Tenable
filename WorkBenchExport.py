@@ -19,7 +19,7 @@ import platform
 
 #avoid insecure warning
 
-# requests.packages.urllib3.disable_warnings()
+requests.urllib3.disable_warnings()
 
 tLastCall = 0
 iTotalSleep = 0
