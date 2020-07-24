@@ -439,8 +439,7 @@ def main():
         iLineNum += 1
         objFileOut.write ("{}\n".format(strLine))
   except Exception as err:
-    LogEntry ("Unexpected issue: {}".format(err))
-    exit()
+    LogEntry ("Unexpected issue: {}".format(err),True)
 
 if __name__ == '__main__':
     main()
