@@ -254,7 +254,7 @@ def main():
   dictParams["format"] = "csv"
   dictParams["chapter"] = "vuln_by_plugin"
   dictParams["date_range"] = "0"
-  dictParams["plugin_ID"] = 19506
+  # dictParams["plugin_ID"] = 19506
   dictParams["filter.0.quality"] = "eq"
   dictParams["filter.0.filter"] = "severity"
   dictParams["filter.0.value"] = "Info"
