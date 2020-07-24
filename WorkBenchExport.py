@@ -162,12 +162,12 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
+    # LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
 
   if iErrCode != "" or WebRequest.status_code !=200:
-    return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
+    return "There was a problem with your request. Error {}: {}".format(iErrCode,iErrText)
   else:
     try:
       return WebRequest.json()
@@ -344,7 +344,11 @@ def main():
     strBaseURL += "/"
 
   if "NotifyEnabled" in dictConfig:
-    strFormat = dictConfig["DateTimeFormat"]
+    if dictConfig["NotifyEnabled"].lower() == "yes" \
+      or dictConfig["NotifyEnabled"].lower() == "true":
+      bNotifyEnabled = True
+    else:
+      bNotifyEnabled = False
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
   if "OutFile" in dictConfig:
@@ -391,11 +395,12 @@ def main():
   strParams = urlparse.urlencode(dictParams)
   strURL = strBaseURL + strAPIFunction + "?" + strParams
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  # APIResponse = {"file":268445459}
   if "file" in APIResponse:
     LogEntry ("FileID={}".format(APIResponse["file"]))
     iFileID = APIResponse["file"]
   else:
-    LogEntry ("Houston we have a problem:{}".format(APIResponse),True)
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)
 
   LogEntry ("Giving the download {} seconds to generate.".format(iSecSleep))
   time.sleep(iSecSleep)
@@ -423,7 +428,6 @@ def main():
           fPercentage = 0
         LogEntry ("Status is {} {:.3%} waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
         time.sleep(iSecSleep)
-        # LogEntry ("Checking the status of the download...")
 
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
 
