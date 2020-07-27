@@ -164,7 +164,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: \n {}\n".format(strMethod,strURL))
+  LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
