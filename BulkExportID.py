@@ -24,16 +24,61 @@ requests.urllib3.disable_warnings()
 
 #Define few things
 iChunkSize = 5000
-dictChunkStatus = {}
-dictFilter = {}
-dictFilter["plugin_id"] = [19506]
-dictFilter["severity"] = ["info"]
-
 iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
 
+def processConf(strConf_File):
+
+  LogEntry ("Looking for configuration file: {}".format(strConf_File))
+  if os.path.isfile(strConf_File):
+    LogEntry ("Configuration File exists")
+  else:
+    LogEntry ("Can't find configuration file {}, make sure it is the same directory "
+      "as this script and named the same with ini extension".format(strConf_File))
+    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
+    objLogOut.close()
+    sys.exit(9)
+
+  strLine = "  "
+  dictConfig = {}
+  LogEntry ("Reading in configuration")
+  objINIFile = open(strConf_File,"r")
+  strLines = objINIFile.readlines()
+  objINIFile.close()
+
+  for strLine in strLines:
+    strLine = strLine.strip()
+    iCommentLoc = strLine.find("#")
+    if iCommentLoc > -1:
+      strLine = strLine[:iCommentLoc].strip()
+    else:
+      strLine = strLine.strip()
+    if "=" in strLine:
+      strConfParts = strLine.split("=")
+      strVarName = strConfParts[0].strip()
+      strValue = strConfParts[1].strip()
+      dictConfig[strVarName] = strValue
+      if strVarName == "include":
+        LogEntry ("Found include directive: {}".format(strValue))
+        strValue = strValue.replace("\\","/")
+        if strValue[:1] == "/" or strValue[1:3] == ":/":
+          LogEntry("include directive is absolute path, using as is")
+        else:
+          strValue = strBaseDir + strValue
+          LogEntry("include directive is relative path,"
+            " appended base directory. {}".format(strValue))
+        if os.path.isfile(strValue):
+          LogEntry ("file is valid")
+          objINIFile = open(strValue,"r")
+          strLines += objINIFile.readlines()
+          objINIFile.close()
+        else:
+          LogEntry ("invalid file in include directive")
+
+  LogEntry ("Done processing configuration, moving on")
+  return dictConfig
 
 def SendNotification (strMsg):
   if True:
@@ -77,61 +122,6 @@ def LogEntry(strMsg,bAbort=False):
   if bAbort:
     SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
     CleanExit("")
-
-def processConf():
-  global strBaseURL
-  global strUserName
-  global strPWD
-  global strNotifyURL
-  global strNotifyToken
-  global strNotifyChannel
-  global strHeader
-
-  LogEntry ("Looking for configuration file: {}".format(strConf_File))
-  if os.path.isfile(strConf_File):
-    LogEntry ("Configuration File exists")
-  else:
-    LogEntry ("Can't find configuration file {}, make sure it is the same directory as this script".format(strConf_File))
-    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
-    objLogOut.close()
-    sys.exit(9)
-
-  strLine = "  "
-  LogEntry ("Reading in configuration")
-  objINIFile = open(strConf_File,"r")
-  strLines = objINIFile.readlines()
-  objINIFile.close()
-
-  for strLine in strLines:
-    strLine = strLine.strip()
-    iCommentLoc = strLine.find("#")
-    if iCommentLoc > -1:
-      strLine = strLine[:iCommentLoc].strip()
-    else:
-      strLine = strLine.strip()
-    if "=" in strLine:
-      strConfParts = strLine.split("=")
-      strVarName = strConfParts[0].strip()
-      strValue = strConfParts[1].strip()
-      strConfParts = strLine.split("=")
-      if strVarName == "APIBaseURL":
-        strBaseURL = strValue
-      if strVarName == "AccessKey":
-        strUserName = strValue
-      if strVarName == "Secret":
-        strPWD = strValue
-      if strVarName == "NotificationURL":
-        strNotifyURL = strValue
-      if strVarName == "NotifyChannel":
-        strNotifyChannel = strValue
-      if strVarName == "NotifyToken":
-        strNotifyToken = strValue
-  strHeader={'Content-type':'application/json','X-ApiKeys':'accessKey='+strUserName+';secretKey='+strPWD}
-
-  if strBaseURL[-1:] != "/":
-    strBaseURL += "/"
-
-  LogEntry ("Done processing configuration, moving on")
 
 def isInt (CheckValue):
   # function to safely check if a value can be interpreded as an int
@@ -239,7 +229,6 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
 
-
 def BulkExport(strFunction):
 
   global objFileOut
@@ -307,30 +296,44 @@ def BulkExport(strFunction):
   return dictResults
 
 def main():
-  global strConf_File
-  global strScriptHost
-  global objLogOut
-  global strScriptName
   global ISO
-  global iLoc
-  global strOutDir
-  global objFileOut
-  global tLastCall
-  global iRowCount
-  global iTotalSleep
-  global tStart
+  global bNotifyEnabled
+  global dictConfig
   global dictPayload
+  global iLimit
+  global iLoc
+  global iMinQuiet
+  global iRowCount
+  global iTimeOut
+  global iTotalSleep
+  global objFileOut
+  global objLogOut
+  global strBaseDir
+  global strBaseURL
+  global strFileout
+  global strFormat
+  global strNotifyChannel
+  global strNotifyToken
+  global strNotifyURL
+  global strOutDir
+  global strScriptHost
+  global strScriptName
+  global tLastCall
+  global tStart
+  global strHeader
+  global dictChunkStatus
 
-
+  strNotifyToken = None
+  strNotifyChannel = None
+  strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  iLoc = sys.argv[0].rfind(".")
   objFileOut = None
   iRowCount = 0
   tStart=time.time()
 
+  dictChunkStatus = {}
+  dictFilter = {}
   dictPayload = {}
-  dictPayload["num_assets"] = iChunkSize
-  dictPayload["filters"] = dictFilter
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -346,7 +349,9 @@ def main():
     strLogDir += "/"
   if strOutDir[-1:] != "/":
     strOutDir += "/"
-  strConf_File = strBaseDir + "TenableConfig.ini"
+  
+  iLoc = sys.argv[0].rfind(".")
+  strConf_File = sys.argv[0][:iLoc] + ".ini"
 
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
@@ -354,7 +359,6 @@ def main():
   if not os.path.exists (strOutDir) :
     os.makedirs(strOutDir)
     print ("\nPath '{0}' for output files didn't exists, so I create it!\n".format(strOutDir))
-
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
@@ -370,7 +374,105 @@ def main():
   print ("Output files saved to {}".format(strOutDir))
   objLogOut = open(strLogFile,"w",1)
   
-  processConf()
+  dictConfig = processConf(strConf_File)
+
+  if "Filter" in dictConfig:
+    lstStrParts = dictConfig["Filter"].split(":")
+    for strFilter in lstStrParts:
+      lstFilterParts = strFilter.split("|")
+      if isInt(lstFilterParts[1]):
+        dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
+      elif lstFilterParts[1][0]=="[":
+        lstTmp = lstFilterParts[1][1:-1].split(",")
+        lstClean = []
+        for strTemp in lstTmp:
+          if isInt(strTemp):
+            lstClean.append(int(strTemp))
+          else:
+            lstClean.append(strTemp)
+        dictFilter[lstFilterParts[0]] = lstClean
+      else:
+        dictFilter[lstFilterParts[0]] = lstFilterParts[1]
+    LogEntry ("Found filter:{}".format(dictFilter))
+  
+  if "AccessKey" in dictConfig and "Secret" in dictConfig:
+    strHeader={
+      'Content-type':'application/json',
+      'X-ApiKeys':'accessKey=' + dictConfig["AccessKey"] + ';secretKey=' + dictConfig["Secret"]}
+  else:
+    LogEntry("API Keys not provided, exiting.",True)
+
+  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
+    bNotifyEnabled = True
+  else:
+    bNotifyEnabled = False
+    LogEntry("Missing configuration items for Slack notifications, "
+      "turning slack notifications off")
+
+  if "Limit" in dictConfig:
+    if isInt(dictConfig["Limit"]):
+      iLimit = int(dictConfig["Limit"])
+    else:
+      LogEntry("Invalid limit, setting to defaults of {}".format(iLimit))
+  else:
+    LogEntry("No limit provided, setting to defaults of {}".format(iLimit))
+
+  if "APIBaseURL" in dictConfig:
+    strBaseURL = dictConfig["APIBaseURL"]
+  else:
+    CleanExit("No Base API provided")
+  if strBaseURL[-1:] != "/":
+    strBaseURL += "/"
+
+  if "NotifyEnabled" in dictConfig:
+    if dictConfig["NotifyEnabled"].lower() == "yes" \
+      or dictConfig["NotifyEnabled"].lower() == "true":
+      bNotifyEnabled = True
+    else:
+      bNotifyEnabled = False
+  if "DateTimeFormat" in dictConfig:
+    strFormat = dictConfig["DateTimeFormat"]
+  if "OutFile" in dictConfig:
+    strFileout = dictConfig["OutFile"]
+
+  if "TimeOut" in dictConfig:
+    if isInt(dictConfig["TimeOut"]):
+      iTimeOut = int(dictConfig["TimeOut"])
+    else:
+      LogEntry("Invalid timeout, setting to defaults of {}".format(iTimeOut))
+
+  if "SecondsBeetweenChecks" in dictConfig:
+    if isInt(dictConfig["SecondsBeetweenChecks"]):
+      iSecSleep = int(dictConfig["SecondsBeetweenChecks"])
+    else:
+      LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
+
+
+  if "MinQuiet" in dictConfig:
+    if isInt(dictConfig["MinQuiet"]):
+      iMinQuiet = int(dictConfig["MinQuiet"])
+    else:
+      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
+
+  if strFileout is None or strFileout =="":
+    LogEntry("outfile not define, using defaults")
+    strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
+  else:
+    if not os.path.exists(os.path.dirname(strFileout)):
+      LogEntry ("\nPath '{0}' for output files didn't exists, "
+        "so I'm creating it!\n".format(strFileout))
+      os.makedirs(os.path.dirname(strFileout))
+  LogEntry ("Output will be written to {}".format(strFileout))
+
+  try:
+    objFileOut = open(strFileout,"w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+      "permission denied.".format(strFileout),True)
+
+  dictPayload["num_assets"] = iChunkSize
+  dictPayload["filters"] = dictFilter
+
   dictResults={}
   dictResults = BulkExport ("vulns")
 
