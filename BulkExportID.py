@@ -23,67 +23,22 @@ import platform
 requests.urllib3.disable_warnings()
 
 #Define few things
-# lstFunctions = ["assets","vulns"]
-lstFunctions = ["vulns"]
 iChunkSize = 5000
+dictChunkStatus = {}
 dictFilter = {}
 dictFilter["plugin_id"] = [19506]
-dictFilter["severity"] = ["info"] 
-iTimeOut = 120
-iMinQuiet = 2 # Minimum time in seconds between API calls
-ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-iLoc = sys.argv[0].rfind(".")
-
-strBaseDir = os.path.dirname(sys.argv[0])
-strRealPath = os.path.realpath(sys.argv[0])
-strRealPath = strRealPath.replace("\\","/")
-if strBaseDir == "":
-  iLoc = strRealPath.rfind("/")
-  strBaseDir = strRealPath[:iLoc]
-if strBaseDir[-1:] != "/":
-  strBaseDir += "/"
-strLogDir  = strBaseDir + "Logs/"
-strOutDir  = strBaseDir + "json/"
-if strLogDir[-1:] != "/":
-  strLogDir += "/"
-if strOutDir[-1:] != "/":
-  strOutDir += "/"
-strConf_File = strBaseDir + "TenableConfig.ini"
-
-if not os.path.exists (strLogDir) :
-  os.makedirs(strLogDir)
-  print ("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
-if not os.path.exists (strOutDir) :
-  os.makedirs(strOutDir)
-  print ("\nPath '{0}' for output files didn't exists, so I create it!\n".format(strOutDir))
-
-
-strScriptName = os.path.basename(sys.argv[0])
-iLoc = strScriptName.rfind(".")
-strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
-strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
-localtime = time.localtime(time.time())
-gmt_time = time.gmtime()
-iGMTOffset = (time.mktime(localtime) - time.mktime(gmt_time))/3600
+dictFilter["severity"] = ["info"]
 dictPayload = {}
 dictPayload["num_assets"] = iChunkSize
 dictPayload["filters"] = dictFilter
-strScriptHost = platform.node().upper()
 
-print ("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
-print ("Running from: {}".format(strRealPath))
-dtNow = time.asctime()
-print ("The time now is {}".format(dtNow))
-print ("Logs saved to {}".format(strLogFile))
-print ("Output files saved to {}".format(strOutDir))
-objLogOut = open(strLogFile,"w",1)
+iTimeOut = 120
+iMinQuiet = 2 # Minimum time in seconds between API calls
 objFileOut = None
-
 tLastCall = 0
 iRowCount = 0
 iTotalSleep = 0
 tStart=time.time()
-dictChunkStatus = {}
 
 def SendNotification (strMsg):
   if True:
@@ -357,6 +312,55 @@ def BulkExport(strFunction):
   return dictResults
 
 def main():
+  global strConf_File
+  global strScriptHost
+  global objLogOut
+  global strScriptName
+  global ISO
+  global iLoc
+  global strOutDir
+
+  ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
+  iLoc = sys.argv[0].rfind(".")
+
+  strBaseDir = os.path.dirname(sys.argv[0])
+  strRealPath = os.path.realpath(sys.argv[0])
+  strRealPath = strRealPath.replace("\\","/")
+  if strBaseDir == "":
+    iLoc = strRealPath.rfind("/")
+    strBaseDir = strRealPath[:iLoc]
+  if strBaseDir[-1:] != "/":
+    strBaseDir += "/"
+  strLogDir  = strBaseDir + "Logs/"
+  strOutDir  = strBaseDir + "json/"
+  if strLogDir[-1:] != "/":
+    strLogDir += "/"
+  if strOutDir[-1:] != "/":
+    strOutDir += "/"
+  strConf_File = strBaseDir + "TenableConfig.ini"
+
+  if not os.path.exists (strLogDir) :
+    os.makedirs(strLogDir)
+    print ("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
+  if not os.path.exists (strOutDir) :
+    os.makedirs(strOutDir)
+    print ("\nPath '{0}' for output files didn't exists, so I create it!\n".format(strOutDir))
+
+
+  strScriptName = os.path.basename(sys.argv[0])
+  iLoc = strScriptName.rfind(".")
+  strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
+  strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
+  strScriptHost = platform.node().upper()
+
+  print ("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
+  print ("Running from: {}".format(strRealPath))
+  dtNow = time.asctime()
+  print ("The time now is {}".format(dtNow))
+  print ("Logs saved to {}".format(strLogFile))
+  print ("Output files saved to {}".format(strOutDir))
+  objLogOut = open(strLogFile,"w",1)
+  
   processConf()
   dictResults={}
   dictResults = BulkExport ("vulns")
