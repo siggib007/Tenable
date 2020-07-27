@@ -254,17 +254,17 @@ def main():
   dictParams["format"] = "csv"
   dictParams["chapter"] = "vuln_by_plugin"
   dictParams["date_range"] = "0"
-  # dictParams["plugin_ID"] = 19506
+  dictParams["plugin_ID"] = 19506
   dictParams["filter.0.quality"] = "eq"
   dictParams["filter.0.filter"] = "severity"
   dictParams["filter.0.value"] = "Info"
-  dictParams["filter.1.quality"] = "eq"
-  dictParams["filter.1.filter"] = "plugin.id"
-  dictParams["filter.1.value"] = "19506"
-  dictParams["filter.2.quality"] = "match"
-  dictParams["filter.2.filter"] = "output"
-  dictParams["filter.2.value"] = "Scan%20duration%20%3A"
-  dictParams["filter.search_type"] = "and"
+  # dictParams["filter.1.quality"] = "eq"
+  # dictParams["filter.1.filter"] = "plugin.id"
+  # dictParams["filter.1.value"] = "19506"
+  # dictParams["filter.2.quality"] = "match"
+  # dictParams["filter.2.filter"] = "output"
+  # dictParams["filter.2.value"] = "Scan%20duration%20%3A"
+  # dictParams["filter.search_type"] = "and"
 
   strFormat = "%Y-%m-%dT%H:%M:%S"
   strFileout = None
@@ -394,6 +394,7 @@ def main():
   strAPIFunction = "workbenches/export"
   strParams = urlparse.urlencode(dictParams)
   strURL = strBaseURL + strAPIFunction + "?" + strParams
+  LogEntry("Initial Query: {} {}\n Payload:{}".format(strMethod, strURL,dictPayload))
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   # APIResponse = {"file":268445459}
   if "file" in APIResponse:
