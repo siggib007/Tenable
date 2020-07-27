@@ -86,7 +86,8 @@ tStart=time.time()
 dictChunkStatus = {}
 
 def SendNotification (strMsg):
-  return
+  if True:
+    return
   global strNotifyURL
   global strNotifyToken
   global strNotifyChannel
@@ -203,19 +204,6 @@ def ConvertFloat (fValue):
   else:
     fTemp = "NULL"
   return fTemp
-
-def QDate2DB(strDate):
-  strTemp = strDate.replace("T"," ")
-  return strTemp.replace("Z","")
-
-def DBClean(strText):
-  if strText is None:
-    return ""
-  strTemp = strText.encode("ascii","ignore")
-  strTemp = strTemp.decode("ascii","ignore")
-  strTemp = strTemp.replace("\\","\\\\")
-  strTemp = strTemp.replace("'","\"")
-  return strTemp
 
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
@@ -355,7 +343,7 @@ def BulkExport(strFunction):
         # if strFunction == "vulns":
         #   exit()
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
-#   dtNow = time.asctime()
+  #dtNow = time.asctime()
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
@@ -371,18 +359,13 @@ def BulkExport(strFunction):
 
 processConf()
 dictResults={}
-for strfunc in lstFunctions:
-  dictResults[strfunc] = BulkExport(strfunc)
+dictResults = BulkExport ("vulns")
 
 LogEntry ("Completed processing, here are the stats:")
-# print (dictResults)
-for strFunction in dictResults:
-  LogEntry ("Downloaded {} {}".format(dictResults[strFunction]["RowCount"],strFunction))
-  LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
-    dictResults[strFunction]["Elapse"],int(dictResults[strFunction]["hours"]),
-    int(dictResults[strFunction]["min"]),dictResults[strFunction]["Sec"]))
-
-
+LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
+LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
+  dictResults["Elapse"],int(dictResults["hours"]),
+  int(dictResults["min"]),dictResults["Sec"]))
 
 LogEntry ("Completed at {}".format(dtNow))
 # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
