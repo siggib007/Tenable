@@ -356,18 +356,21 @@ def BulkExport(strFunction):
   objFileOut.close()
   return dictResults
 
+def main():
+  processConf()
+  dictResults={}
+  dictResults = BulkExport ("vulns")
 
-processConf()
-dictResults={}
-dictResults = BulkExport ("vulns")
+  LogEntry ("Completed processing, here are the stats:")
+  LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
+  LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
+    dictResults["Elapse"],int(dictResults["hours"]),
+    int(dictResults["min"]),dictResults["Sec"]))
 
-LogEntry ("Completed processing, here are the stats:")
-LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
-LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
-  dictResults["Elapse"],int(dictResults["hours"]),
-  int(dictResults["min"]),dictResults["Sec"]))
+  LogEntry ("Completed at {}".format(dtNow))
+  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  objLogOut.close()
 
-LogEntry ("Completed at {}".format(dtNow))
-# SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
-objLogOut.close()
 
+if __name__ == '__main__':
+  main()
