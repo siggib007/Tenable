@@ -28,17 +28,12 @@ dictChunkStatus = {}
 dictFilter = {}
 dictFilter["plugin_id"] = [19506]
 dictFilter["severity"] = ["info"]
-dictPayload = {}
-dictPayload["num_assets"] = iChunkSize
-dictPayload["filters"] = dictFilter
 
 iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
-objFileOut = None
-tLastCall = 0
-iRowCount = 0
 iTotalSleep = 0
-tStart=time.time()
+tLastCall = 0
+
 
 def SendNotification (strMsg):
   if True:
@@ -319,9 +314,23 @@ def main():
   global ISO
   global iLoc
   global strOutDir
+  global objFileOut
+  global tLastCall
+  global iRowCount
+  global iTotalSleep
+  global tStart
+  global dictPayload
+
 
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   iLoc = sys.argv[0].rfind(".")
+  objFileOut = None
+  iRowCount = 0
+  tStart=time.time()
+
+  dictPayload = {}
+  dictPayload["num_assets"] = iChunkSize
+  dictPayload["filters"] = dictFilter
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
