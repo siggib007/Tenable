@@ -388,7 +388,8 @@ def main():
     
     iIndex = 0
     for strFilterDef in lstFilterDefs:
-      lstLineParts = strFilterDef.split(",")
+      strTemp = strFilterDef.strip()
+      lstLineParts = strTemp.split(",")
       strIndex = "filter.{}.quality".format(iIndex)
       dictParams[strIndex] = lstLineParts[1]
       strIndex = "filter.{}.filter".format(iIndex)
@@ -422,7 +423,6 @@ def main():
   strURL = strBaseURL + strAPIFunction + "?" + strParams
   LogEntry("Submitting query request\n {} {}\n Payload{}".format(strMethod, strURL,dictPayload))
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  # APIResponse = {"file":268445459}
   if "file" in APIResponse:
     LogEntry ("FileID={}".format(APIResponse["file"]))
     iFileID = APIResponse["file"]
@@ -472,7 +472,7 @@ def main():
     LogEntry ("response is unknown type",True)
  # end if
   LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
-  LogEntry ("Starting to stream the results to disk")
+  LogEntry ("Starting to stream the results to {}".format(strFileout))
   iLineNum = 1
   try:
     for strLine in WebRequest.iter_lines():

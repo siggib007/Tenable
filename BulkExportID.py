@@ -483,6 +483,7 @@ def main():
     int(dictResults["min"]),dictResults["Sec"]))
 
   LogEntry ("Completed at {}".format(dtNow))
+  LogEntry ("Results save to {}".format(strFileout))
   # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
