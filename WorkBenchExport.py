@@ -138,7 +138,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
-#   dictResponse = {}
 
   # LogEntry ("Doing a {} to URL: \n {}\n".format(strMethod,strURL))
   try:
@@ -359,10 +358,12 @@ def main():
     dictParams["date_range"] = dictConfig["DateRange"]
 
   if "PluginID" in dictConfig:
-    dictParams["plugin_ID"] = dictConfig["PluginID"]
+    if dictConfig["PluginID"] != "":
+      dictParams["plugin_ID"] = dictConfig["PluginID"]
 
   if "AssetID" in dictConfig:
-    dictParams["asset_id"] = dictConfig["AssetID"]
+    if dictConfig["AssetID"] != "":
+      dictParams["asset_id"] = dictConfig["AssetID"]
   
   if "FilterType" in dictConfig:
     dictParams["filter.search_type"] = dictConfig["FilterType"]
