@@ -397,7 +397,7 @@ def main():
       iIndex += 1
 
   LogEntry ("Parameters: {}".format(dictParams))
-  
+
   if strFileout is None or strFileout =="":
     LogEntry("outfile not define, using defaults")
     strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
@@ -452,7 +452,10 @@ def main():
           fPercentage = iProgress / iJobTotal
         else:
           fPercentage = 0
-        LogEntry ("Status: {} {:.3%}. Waiting additional {} seconds.".format(APIResponse["status"],fPercentage,iSecSleep))
+        if fPercentage == 0:
+          LogEntry ("{} {} / {} ".format(APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"]))
+        else:
+          LogEntry ("{} {:.3%} complete".format(APIResponse["status"],fPercentage))
         time.sleep(iSecSleep)
 
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
