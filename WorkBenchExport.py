@@ -239,7 +239,6 @@ def main():
   global dictConfig
   global strFormat
   global bNotifyEnabled
-  global iLimit
   global iMinQuiet
   global iTimeOut
 
@@ -250,26 +249,11 @@ def main():
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
 
   dictParams = {}
-  dictParams["report"] = "vulnerabilities"
   dictParams["format"] = "csv"
-  dictParams["chapter"] = "vuln_by_plugin"
-  dictParams["date_range"] = "0"
-  dictParams["plugin_ID"] = 19506
-  dictParams["filter.0.quality"] = "eq"
-  dictParams["filter.0.filter"] = "severity"
-  dictParams["filter.0.value"] = "Info"
-  # dictParams["filter.1.quality"] = "eq"
-  # dictParams["filter.1.filter"] = "plugin.id"
-  # dictParams["filter.1.value"] = "19506"
-  # dictParams["filter.2.quality"] = "match"
-  # dictParams["filter.2.filter"] = "output"
-  # dictParams["filter.2.value"] = "Scan%20duration%20%3A"
-  # dictParams["filter.search_type"] = "and"
 
   strFormat = "%Y-%m-%dT%H:%M:%S"
   strFileout = None
   bNotifyEnabled = False
-  iLimit = 5000
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -328,14 +312,6 @@ def main():
     LogEntry("Missing configuration items for Slack notifications, "
       "turning slack notifications off")
 
-  if "Limit" in dictConfig:
-    if isInt(dictConfig["Limit"]):
-      iLimit = int(dictConfig["Limit"])
-    else:
-      LogEntry("Invalid limit, setting to defaults of {}".format(iLimit))
-  else:
-    LogEntry("No limit provided, setting to defaults of {}".format(iLimit))
-
   if "APIBaseURL" in dictConfig:
     strBaseURL = dictConfig["APIBaseURL"]
   else:
@@ -349,6 +325,7 @@ def main():
       bNotifyEnabled = True
     else:
       bNotifyEnabled = False
+
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
   if "OutFile" in dictConfig:
@@ -366,13 +343,61 @@ def main():
     else:
       LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
 
-
   if "MinQuiet" in dictConfig:
     if isInt(dictConfig["MinQuiet"]):
       iMinQuiet = int(dictConfig["MinQuiet"])
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
+  if "ReportType" in dictConfig:
+    dictParams["report"] = dictConfig["ReportType"]
+
+  if "ReportChapter" in dictConfig:
+    dictParams["chapter"] = dictConfig["ReportChapter"]
+
+  if "DateRange" in dictConfig:
+    dictParams["date_range"] = dictConfig["DateRange"]
+
+  if "PluginID" in dictConfig:
+    dictParams["plugin_ID"] = dictConfig["PluginID"]
+
+  if "AssetID" in dictConfig:
+    dictParams["asset_id"] = dictConfig["AssetID"]
+  
+  if "FilterType" in dictConfig:
+    dictParams["filter.search_type"] = dictConfig["FilterType"]
+  
+  if "FilterDefFile" in dictConfig:
+    strFilterFile = dictConfig["FilterDefFile"]
+    LogEntry ("Processing Filter Definition file: {}".format(strFilterFile))
+    strFilterFile = strFilterFile.replace("\\","/")
+    if strFilterFile[:1] == "/" or strFilterFile[1:3] == ":/":
+      LogEntry("File is absolute path, using as is")
+    else:
+      strFilterFile = strBaseDir + strFilterFile
+      LogEntry("file is relative path,"
+        " appended base directory. {}".format(strFilterFile))
+    if os.path.isfile(strFilterFile):
+      LogEntry ("file is valid")
+      objFilterFile = open(strFilterFile,"r")
+      lstFilterDefs = objFilterFile.readlines()
+      objFilterFile.close()
+    else:
+      LogEntry ("invalid file in include directive")
+    
+    iIndex = 0
+    for strFilterDef in lstFilterDefs:
+      lstLineParts = strFilterDef.split(",")
+      strIndex = "filter.{}.quality".format(iIndex)
+      dictParams[strIndex] = lstLineParts[1]
+      strIndex = "filter.{}.filter".format(iIndex)
+      dictParams[strIndex] = lstLineParts[0]
+      strIndex = "filter.{}.value".format(iIndex)
+      dictParams[strIndex] = lstLineParts[2]
+      iIndex += 1
+
+  LogEntry ("Parameters: {}".format(dictParams))
+  
   if strFileout is None or strFileout =="":
     LogEntry("outfile not define, using defaults")
     strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
@@ -381,6 +406,7 @@ def main():
       LogEntry ("\nPath '{0}' for output files didn't exists, "
         "so I'm creating it!\n".format(strFileout))
       os.makedirs(os.path.dirname(strFileout))
+  
   LogEntry ("Output will be written to {}".format(strFileout))
 
   try:
