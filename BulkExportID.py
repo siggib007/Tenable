@@ -233,6 +233,7 @@ def BulkExport(strFunction):
 
   global objFileOut
   global iRowCount
+  global strRAWout
 
   iRowCount = 0
   iTotalSleep = 0
@@ -240,7 +241,12 @@ def BulkExport(strFunction):
   dictResults = {}
 
   strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
-  objFileOut = open(strRAWout,"w")
+  try:
+    objFileOut = open(strRAWout,"w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+      "permission denied.".format(strRAWout),True)
+  LogEntry ("Output file {} created".format(strRAWout))
 
   strAPIFunction = strFunction + "/export/"
 
@@ -310,7 +316,6 @@ def main():
   global objLogOut
   global strBaseDir
   global strBaseURL
-  global strFileout
   global strFormat
   global strNotifyChannel
   global strNotifyToken
@@ -432,8 +437,6 @@ def main():
       bNotifyEnabled = False
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
-  if "OutFile" in dictConfig:
-    strFileout = dictConfig["OutFile"]
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -454,22 +457,6 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  if strFileout is None or strFileout =="":
-    LogEntry("outfile not define, using defaults")
-    strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
-  else:
-    if not os.path.exists(os.path.dirname(strFileout)):
-      LogEntry ("\nPath '{0}' for output files didn't exists, "
-        "so I'm creating it!\n".format(strFileout))
-      os.makedirs(os.path.dirname(strFileout))
-  LogEntry ("Output will be written to {}".format(strFileout))
-
-  try:
-    objFileOut = open(strFileout,"w")
-  except PermissionError:
-    LogEntry("unable to open output file {} for writing, "
-      "permission denied.".format(strFileout),True)
-
   dictPayload["num_assets"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
@@ -483,7 +470,7 @@ def main():
     int(dictResults["min"]),dictResults["Sec"]))
 
   LogEntry ("Completed at {}".format(dtNow))
-  LogEntry ("Results save to {}".format(strFileout))
+  LogEntry ("Results save to {}".format(strRAWout))
   # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
