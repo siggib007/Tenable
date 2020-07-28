@@ -389,12 +389,11 @@ def main():
     LogEntry("unable to open output file {} for writing, "
       "permission denied.".format(strFileout),True)
 
-  LogEntry("Submitting query request")
   strMethod = "get"
   strAPIFunction = "workbenches/export"
   strParams = urlparse.urlencode(dictParams)
   strURL = strBaseURL + strAPIFunction + "?" + strParams
-  LogEntry("Initial Query: {} {}\n Payload:{}".format(strMethod, strURL,dictPayload))
+  LogEntry("Submitting query request\n {} {}\n Payload{}".format(strMethod, strURL,dictPayload))
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   # APIResponse = {"file":268445459}
   if "file" in APIResponse:
