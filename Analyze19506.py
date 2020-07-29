@@ -114,7 +114,8 @@ def SendNotification (strMsg):
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
   objLogOut.close()
-  objFileOut.close()
+  objRawOut.close()
+  objOutFile.close()
   sys.exit(9)
 
 def LogEntry(strMsg,bAbort=False):
@@ -214,10 +215,9 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    # APIResponse = APIResponse.encode("ascii","ignore")
-    # APIResponse = APIResponse.decode("ascii","ignore")
+
     try:
-      objFileOut.write ("{}".format(APIResponse))
+      objRawOut.write ("{}".format(APIResponse))
     except Exception as err:
       LogEntry ("Issue with writing chunk to file. {}".format(err))
     if isinstance(APIResponse,str):
@@ -241,7 +241,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
               strHost += "({})".format(lstChunkItem["asset"]["ipv4"])
         if "output" in lstChunkItem:
           strOutput = lstChunkItem["output"]
-        LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
+        # LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
         ParseResults(strAssetID,strHost,strOutput)
 
 def CleanStr(strOld):
@@ -293,7 +293,7 @@ def ParseResults(strAssetID,strHost,strOutput):
 
 def BulkExport(strFunction):
 
-  global objFileOut
+  global objRawOut
   global iRowCount
   global strRAWout
 
@@ -304,11 +304,11 @@ def BulkExport(strFunction):
 
   strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
   try:
-    objFileOut = open(strRAWout,"w")
+    objRawOut = open(strRAWout,"w")
   except PermissionError:
     LogEntry("unable to open output file {} for writing, "
       "permission denied.".format(strRAWout),True)
-  LogEntry ("Output file {} created".format(strRAWout))
+  LogEntry ("Raw json file {} created".format(strRAWout))
 
   strAPIFunction = strFunction + "/export/"
 
@@ -362,7 +362,7 @@ def BulkExport(strFunction):
   dictResults["Sec"]=iSec
   dictResults["min"]=iMin
   dictResults["hours"]=iHours
-  objFileOut.close()
+  objRawOut.close()
   return dictResults
 
 def main():
@@ -376,7 +376,7 @@ def main():
   global iRowCount
   global iTimeOut
   global iTotalSleep
-  global objFileOut
+  global objRawOut
   global objLogOut
   global strBaseDir
   global strBaseURL
@@ -393,12 +393,13 @@ def main():
   global dictChunkStatus
   global dictDur
   global dictCount
+  global objOutFile
 
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  objFileOut = None
+  objRawOut = None
   iRowCount = 0
   tStart=time.time()
 
@@ -519,12 +520,29 @@ def main():
     else:
       LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
 
-
   if "MinQuiet" in dictConfig:
     if isInt(dictConfig["MinQuiet"]):
       iMinQuiet = int(dictConfig["MinQuiet"])
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
+
+  if "OutFile" in dictConfig:
+    strFileout = dictConfig["OutFile"]
+
+  if strFileout is None or strFileout =="":
+    LogEntry("outfile not define, using defaults")
+    strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
+  elif not os.path.exists(os.path.dirname(strFileout)):
+    LogEntry ("\nPath '{0}' for output files didn't exists, "
+        "so I'm creating it!\n".format(strFileout))
+    os.makedirs(os.path.dirname(strFileout))
+  LogEntry ("Output will be written to {}".format(strFileout))
+
+  try:
+    objOutFile = open(strFileout,"w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+      "permission denied.".format(strFileout),True)
 
   dictPayload["num_assets"] = iChunkSize
   dictPayload["filters"] = dictFilter
@@ -543,13 +561,12 @@ def main():
     print (strOut)
     objOutFile.write ("{}\n".format(strOut))
   
-  
   iAvgSec = iTotalScan/iLineCount
   iAvgMin = iAvgSec/60
   strOut = ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
   print (strOut)
   objOutFile.write ("{}\n".format(strOut))
-  objOutFile.close()  
+  objOutFile.close()
   LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults["Elapse"],int(dictResults["hours"]),
