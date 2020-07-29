@@ -155,19 +155,19 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry ("It's been {} seconds since last API call".format(fDelta))
+  # LogEntry ("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
     iDelta = int(fDelta)
     iAddWait = iMinQuiet - iDelta
-    LogEntry ("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
+    # LogEntry ("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
+  # LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
@@ -187,7 +187,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     iErrCode = "ResponseErr"
     iErrText = "response is unknown type"
 
-  LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
+  # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
     LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
@@ -276,7 +276,6 @@ def ParseResults(strAssetID,strHost,strOutput):
         lstStats.append(str(iScanDur))
       else:
         lstStats.append(CleanStr(strLineParts[1]))
-  # LogEntry(lstStats,True)
   if iLineCount == 0:
     objOutFile.write("{}\n".format(",".join(lstHeaders)))
   objOutFile.write("{}\n".format(",".join(lstStats)))
@@ -316,8 +315,6 @@ def BulkExport(strFunction):
   iChunkCount = 0
   lstChunks = []
 
-  # Set the payload to the maximum number to be pulled at once
-
   strURL = strBaseURL + strAPIFunction
 
   APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
@@ -345,14 +342,12 @@ def BulkExport(strFunction):
             LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
         else:
           LogEntry ("Somethings wrong, 'chunks_available not in response")
-        LogEntry ("Status: {} \nChunks Available: {}".format(strStatus,iChunkCount))
+        LogEntry ("Status: {} | Chunks Available: {}".format(strStatus,iChunkCount))
         if iChunkCount > 0:
-          LogEntry("{}\nNow fetching")
+          LogEntry("Now fetching chunks {}".format(lstChunks))
           FetchChunks(strFunction,lstChunks,strExportUUID)
-        # if strFunction == "vulns":
-        #   exit()
+
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
-  #dtNow = time.asctime()
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
@@ -531,7 +526,7 @@ def main():
 
   if strFileout is None or strFileout =="":
     LogEntry("outfile not define, using defaults")
-    strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
+    strFileout = strOutDir + strScriptName[:iLoc] + ISO + ".csv"
   elif not os.path.exists(os.path.dirname(strFileout)):
     LogEntry ("\nPath '{0}' for output files didn't exists, "
         "so I'm creating it!\n".format(strFileout))
