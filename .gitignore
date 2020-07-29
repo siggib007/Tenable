@@ -7,3 +7,5 @@ Logs/
 *.rpm
 *.bak
 *.csv
+json/
+*.xlsx

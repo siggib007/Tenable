@@ -171,13 +171,13 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
-      LogEntry ("get executed")
+      # LogEntry ("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
         WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False)
       else:
         WebRequest = requests.post(strURL, headers=strHeader, verify=False)
-      LogEntry ("post executed")
+      # LogEntry ("post executed")
   except Exception as err:
     LogEntry ("Issue with API call. {}".format(err))
     CleanExit ("due to issue with API, please check the logs")
@@ -314,7 +314,7 @@ def BulkExport(strFunction):
   strStatus = "PROCESSING"
   iChunkCount = 0
   lstChunks = []
-
+  
   strURL = strBaseURL + strAPIFunction
 
   APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
@@ -344,8 +344,12 @@ def BulkExport(strFunction):
           LogEntry ("Somethings wrong, 'chunks_available not in response")
         LogEntry ("Status: {} | Chunks Available: {}".format(strStatus,iChunkCount))
         if iChunkCount > 0:
-          LogEntry("Now fetching chunks {}".format(lstChunks))
-          FetchChunks(strFunction,lstChunks,strExportUUID)
+          lstNotProcessed = []
+          for iChunkID in lstChunks:
+            if iChunkID not in dictChunkStatus:
+              lstNotProcessed.append(iChunkID)
+          LogEntry("Now fetching chunks {}".format(lstNotProcessed))
+          FetchChunks(strFunction,lstNotProcessed,strExportUUID)
 
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
@@ -531,6 +535,7 @@ def main():
     LogEntry ("\nPath '{0}' for output files didn't exists, "
         "so I'm creating it!\n".format(strFileout))
     os.makedirs(os.path.dirname(strFileout))
+  strFileout = strFileout.replace("\\","/")
   LogEntry ("Output will be written to {}".format(strFileout))
 
   try:
