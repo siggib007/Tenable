@@ -344,12 +344,14 @@ def BulkExport(strFunction):
           LogEntry ("Somethings wrong, 'chunks_available not in response")
         LogEntry ("Status: {} | Chunks Available: {}".format(strStatus,iChunkCount))
         if iChunkCount > 0:
+          LogEntry ("Available Chunks: {}".format(lstChunks))
           lstNotProcessed = []
           for iChunkID in lstChunks:
             if iChunkID not in dictChunkStatus:
               lstNotProcessed.append(iChunkID)
-          LogEntry("Now fetching chunks {}".format(lstNotProcessed))
-          FetchChunks(strFunction,lstNotProcessed,strExportUUID)
+          if len(lstNotProcessed) > 0:
+            LogEntry("Now fetching chunks {}".format(lstNotProcessed))
+            FetchChunks(strFunction,lstNotProcessed,strExportUUID)
 
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
