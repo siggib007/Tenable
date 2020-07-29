@@ -28,6 +28,8 @@ iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
+iLineCount = 0
+iTotalScan = 0
 
 def processConf(strConf_File):
 
@@ -230,10 +232,64 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for lstChunkItem in APIResponse:
         if "asset" in lstChunkItem:
-          LogEntry("Asset: {}".format(lstChunkItem["asset"]))
+          if "uuid" in lstChunkItem["asset"]:
+            strAssetID = lstChunkItem["asset"]["uuid"]
+          if "hostname" in lstChunkItem["asset"]:
+            strHost = lstChunkItem["asset"]["hostname"]
+          if "ipv4" in lstChunkItem["asset"]:
+            if lstChunkItem["asset"]["ipv4"] != strHost:
+              strHost += "({})".format(lstChunkItem["asset"]["ipv4"])
         if "output" in lstChunkItem:
-          LogEntry("Output: {} ".format(lstChunkItem["output"]))
-        sys.exit()
+          strOutput = lstChunkItem["output"]
+        LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
+        ParseResults(strAssetID,strHost,strOutput)
+
+def CleanStr(strOld):
+  strTemp = strOld.replace('"','')
+  strTemp = strTemp.replace(',','')
+  strTemp = strTemp.replace('\n','')
+  return strTemp.strip()
+
+def ParseResults(strAssetID,strHost,strOutput):
+  global iTotalScan
+  global iLineCount
+
+  lstHeaders = []
+  lstHeaders.append("AssetID")
+  lstHeaders.append("Host")
+  lstStats = []
+  lstStats.append(strAssetID)
+  lstStats.append(strHost)
+  lstOutput = strOutput.splitlines()
+  del lstOutput[0]
+  del lstOutput[0]
+  for strLine in lstOutput:
+    strLineParts = strLine.split(": ")
+    if len(strLineParts) > 1:
+      lstHeaders.append(CleanStr(strLineParts[0]))
+      if strLineParts[0].strip() == "Port range":
+        strTemp = strLineParts[1].replace(",","|")
+        lstStats.append(CleanStr(strTemp))
+      elif strLineParts[0].strip() == "Scan duration":
+        iScanDur = int(strLineParts[1][:-4])
+        iTotalScan += iScanDur
+        lstStats.append(str(iScanDur))
+      else:
+        lstStats.append(CleanStr(strLineParts[1]))
+  # LogEntry(lstStats,True)
+  if iLineCount == 0:
+    objOutFile.write("{}\n".format(",".join(lstHeaders)))
+  objOutFile.write("{}\n".format(",".join(lstStats)))
+  if lstStats[6] in dictCount:
+    dictCount[lstStats[6]] += 1
+  else:
+    dictCount[lstStats[6]] = 1
+  if lstStats[6] in dictDur:
+    dictDur[lstStats[6]] += iScanDur
+  else:
+    dictDur[lstStats[6]] = iScanDur
+  iLineCount += 1
+  print ("Processed {} lines....".format(iLineCount),end="\r")
 
 def BulkExport(strFunction):
 
@@ -289,8 +345,10 @@ def BulkExport(strFunction):
             LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
         else:
           LogEntry ("Somethings wrong, 'chunks_available not in response")
-        LogEntry ("Status: {} \nChunks Available: {}\n{}\nFetching them".format(strStatus,iChunkCount,lstChunks))
-        FetchChunks(strFunction,lstChunks,strExportUUID)
+        LogEntry ("Status: {} \nChunks Available: {}".format(strStatus,iChunkCount))
+        if iChunkCount > 0:
+          LogEntry("{}\nNow fetching")
+          FetchChunks(strFunction,lstChunks,strExportUUID)
         # if strFunction == "vulns":
         #   exit()
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
@@ -333,6 +391,8 @@ def main():
   global tStart
   global strHeader
   global dictChunkStatus
+  global dictDur
+  global dictCount
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -345,6 +405,9 @@ def main():
   dictChunkStatus = {}
   dictFilter = {}
   dictPayload = {}
+  dictDur = {}
+  dictCount = {}  
+  
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -470,6 +533,23 @@ def main():
   dictResults = BulkExport ("vulns")
 
   LogEntry ("Completed processing, here are the stats:")
+  strOut = "\n\nScan Policy,Count,Duration,Avg Sec,Ave Min"
+  print(strOut)
+  objOutFile.write ("{}\n".format(strOut))
+  for strPolicy in dictCount:
+    iAvgSec = dictDur[strPolicy]/dictCount[strPolicy]
+    iAvgMin = iAvgSec/60
+    strOut = ("{},{},{},{:.2f},{:.2f}".format(strPolicy, dictCount[strPolicy],dictDur[strPolicy],iAvgSec,iAvgMin))
+    print (strOut)
+    objOutFile.write ("{}\n".format(strOut))
+  
+  
+  iAvgSec = iTotalScan/iLineCount
+  iAvgMin = iAvgSec/60
+  strOut = ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
+  print (strOut)
+  objOutFile.write ("{}\n".format(strOut))
+  objOutFile.close()  
   LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults["Elapse"],int(dictResults["hours"]),
