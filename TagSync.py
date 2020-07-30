@@ -223,7 +223,6 @@ def main():
   global dictConfig
   global iLoc
   global iMinQuiet
-  global iRowCount
   global iTimeOut
   global iTotalSleep
   global objLogOut
@@ -335,7 +334,7 @@ def main():
   strMethod = "get"
   strAPIFunction = "tags/values"
   strURL = strBaseURL + strAPIFunction
-  LogEntry("Submitting query request\n {} {}\n Payload{}".format(strMethod, strURL, dictPayload))
+  LogEntry("Pulling a list of existing Tag Values")
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "values" in APIResponse:
     if isinstance(APIResponse["values"],list):
@@ -343,25 +342,29 @@ def main():
             strValueID = dictValue["uuid"]
             strValue = dictValue["value"]
             dictAllValues[strValue] = strValueID
-            LogEntry ("{}: {}".format(strValue,strValueID))
+            # LogEntry ("{}: {}".format(strValue,strValueID))
     else:
-        LogEntry("Values is not a list, no idea what to do with that",True)
+        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
   else:
     LogEntry ("Unepxected results: {}".format(APIResponse),True)
 
   strMethod = "get"
   strAPIFunction = "target-groups/"
   strURL = strBaseURL + strAPIFunction
-  LogEntry("Submitting query request\n {} {}\n Payload{}".format(strMethod, strURL, dictPayload))
+  LogEntry("Now Pulling all Target Groups and transfering them to Tag Values")
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
 
   if "target_groups" in APIResponse:
     if isinstance(APIResponse["target_groups"],list):
+        iTGSize = len(APIResponse["target_groups"])
         for dictTG in APIResponse["target_groups"]:
-          strType = dictTG["Type"]
+          strType = dictTG["type"]
           strMembers = dictTG["members"]
+          lstMembers = strMembers.split(",")
+          iMemberCount = len(lstMembers)
           strName = dictTG["name"]
           strID = dictTG["id"]
+          LogEntry ("Processing group {} with ID {}. Contains {} members. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
           dictPayload = {}
           dictFilterObj = {}
           dictFilterObj["field"] = "ipv4"
@@ -373,27 +376,31 @@ def main():
           dictFilters["asset"]["and"].append(dictFilterObj)
           dictPayload["filters"] = dictFilters
           if strName in dictAllValues:
-            strAPIFunction = "tags/values/{}".format(dictTG[strName])
+            LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
+            strAPIFunction = "tags/values/{}".format(dictAllValues[strName])
             strMethod = "put"
-            strAction = "updated"
+            strAction = "update"
           else:
+            LogEntry ("Creating a new value with name and members of the group")
             dictPayload["category_name"] = strType + "TG"
             dictPayload["value"] = strName
             dictPayload["description"] = "Created by a sync script from Target Group ID {}".format(strID)
             strMethod = "post"
             strAPIFunction = "tags/values/"
-            strAction = "created"
+            strAction = "create"
 
           strURL = strBaseURL + strAPIFunction
-          LogEntry("Submitting query request\n {} {}\n Payload{}".format(strMethod, strURL, dictPayload))
+          LogEntry("Submitting request to {}".format(strAction))
           APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
           if isinstance(APIResponse,dict):
             if "uuid" in APIResponse:
-              LogEntry("Tag Value {} successfully. ID:{}".format(strAction, APIResponse["uuid"]))
+              LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
             else:
               LogEntry("No UUID\n{}".format(APIResponse))
           else:
             LogEntry("Response is not dictionary\n{}".format(APIResponse))
+          iRowCount += 1
+  LogEntry("Done!")
 
 if __name__ == '__main__':
   main()
