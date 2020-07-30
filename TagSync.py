@@ -245,7 +245,7 @@ def main():
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  iRowCount = 0
+  iRowCount = 1
   tStart=time.time()
 
   dictChunkStatus = {}
@@ -388,6 +388,7 @@ def main():
             strMethod = "post"
             strAPIFunction = "tags/values/"
             strAction = "create"
+            # LogEntry("Payload: {}".format(dictPayload))
 
           strURL = strBaseURL + strAPIFunction
           LogEntry("Submitting request to {}".format(strAction))
@@ -396,10 +397,11 @@ def main():
             if "uuid" in APIResponse:
               LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
             else:
-              LogEntry("No UUID\n{}".format(APIResponse))
+              LogEntry("No UUID\n{}".format(APIResponse),True)
           else:
-            LogEntry("Response is not dictionary\n{}".format(APIResponse))
+            LogEntry("Response is not dictionary\n{}\n{}".format(APIResponse,dictPayload))
           iRowCount += 1
+
   LogEntry("Done!")
 
 if __name__ == '__main__':
