@@ -236,25 +236,24 @@ def ValidateIP(strToCheck):
 
 	return True
 
-def CheckMembers(strCheck):
+def CheckMembers(lstValues):
   lstIPv4 = []
   lstHost = []
   dictReturn = {}
-  lstValues = strCheck.split(",")
   for strValue in lstValues:
     if strValue.find(":") > 0:
       #Value is an IPv6, unable to process right now
       pass
     elif strValue.find("-") > 0:
       lstValueParts = strValue.split("-")
-      if len(lstValues) == 2:
+      if len(lstValueParts) == 2:
         if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
           lstIPv4.append(strValue)
         else:
           lstHost.append(strValue)
       else:
         lstHost.append(strValue)
-    elif len(strValue)-strValue.rfind("/") == 3:
+    elif strValue.find("/") > 0 and len(strValue) > 6:
       lstValueParts = strValue.split("/")
       bTemp = True
       if len(lstValueParts) != 2:
@@ -417,22 +416,26 @@ def main():
         for dictTG in APIResponse["target_groups"]:
           strType = dictTG["type"]
           strMembers = dictTG["members"]
+          strName = dictTG["name"]
+          if strName == "Default":
+            #Don't try to convert the default group
+            continue
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
           if iMemberCount < 10000:
-            dictMembers = CheckMembers(strMembers)
+            dictMembers = CheckMembers(lstMembers)
           else:
             #skip this group, it has too many members
             continue
-          strName = dictTG["name"]
           strID = dictTG["id"]
           dictCount[strName] = iMemberCount
           LogEntry ("Processing group {} with ID {}. Contains {} members. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
           dictPayload = {}
           dictFilterObj = {}
-          dictFilterObj["field"] = "ipv4"
-          dictFilterObj["operator"] = "eq"
-          dictFilterObj["value"] = dictMembers["ipv4"]
+          if dictMembers["ipv4"] != "":
+            dictFilterObj["field"] = "ipv4"
+            dictFilterObj["operator"] = "eq"
+            dictFilterObj["value"] = dictMembers["ipv4"]
           dictFilters = {}
           dictFilters["asset"] = {}
           dictFilters["asset"]["and"] = []
@@ -462,7 +465,7 @@ def main():
             else:
               LogEntry("No UUID\n{}".format(APIResponse),True)
           else:
-            LogEntry("Response is not dictionary\n{}".format(APIResponse))
+            LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
           iRowCount += 1
 
   for strGroup in dictCount:
