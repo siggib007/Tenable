@@ -432,14 +432,20 @@ def main():
           LogEntry ("Processing group {} with ID {}. Contains {} entries. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
           dictPayload = {}
           dictFilterObj = {}
+          dictFilters = {}
+          dictFilters["asset"] = {}
+          dictFilters["asset"]["and"] = []
           if dictMembers["ipv4"] != "":
             dictFilterObj["field"] = "ipv4"
             dictFilterObj["operator"] = "eq"
             dictFilterObj["value"] = dictMembers["ipv4"]
-          dictFilters = {}
-          dictFilters["asset"] = {}
-          dictFilters["asset"]["and"] = []
-          dictFilters["asset"]["and"].append(dictFilterObj)
+            dictFilters["asset"]["and"].append(dictFilterObj)
+          dictFilterObj = {}
+          if dictMembers["dns"] != "":
+            dictFilterObj["field"] = "dns"
+            dictFilterObj["operator"] = "eq"
+            dictFilterObj["value"] = dictMembers["dns"]
+            dictFilters["asset"]["and"].append(dictFilterObj)      
           dictPayload["filters"] = dictFilters
           if strName in dictAllValues:
             LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
