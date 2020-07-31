@@ -248,9 +248,9 @@ def CheckMembers(lstValues):
       lstValueParts = strValue.split("-")
       if len(lstValueParts) == 2:
         if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
-          lstIPv4.append(strValue)
+          lstIPv4.append(strValue.strip())
         else:
-          lstHost.append(strValue)
+          lstHost.append(strValue.strip())
       else:
         lstHost.append(strValue)
     elif strValue.find("/") > 0 and len(strValue) > 6:
@@ -267,13 +267,13 @@ def CheckMembers(lstValues):
       if not ValidateIP(lstValueParts[0]):
         bTemp = False
       if bTemp:
-        lstIPv4.append(strValue)
+        lstIPv4.append(strValue.strip())
       else:
-        lstHost.append(strValue)
+        lstHost.append(strValue.strip())
     elif ValidateIP(strValue): 
-      lstIPv4.append(strValue)
+      lstIPv4.append(strValue.strip())
     else:
-      lstHost.append(strValue)
+      lstHost.append(strValue.strip())
   dictReturn["ipv4"] = ",".join(lstIPv4)
   dictReturn["dns"] = ",".join(lstHost)
   return dictReturn
@@ -429,7 +429,7 @@ def main():
             continue
           strID = dictTG["id"]
           dictCount[strName] = iMemberCount
-          LogEntry ("Processing group {} with ID {}. Contains {} members. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
+          LogEntry ("Processing group {} with ID {}. Contains {} entries. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
           dictPayload = {}
           dictFilterObj = {}
           if dictMembers["ipv4"] != "":
@@ -468,8 +468,8 @@ def main():
             LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
           iRowCount += 1
 
-  for strGroup in dictCount:
-    LogEntry ("{},{}".format(strGroup,dictCount[strGroup]))
+  # for strGroup in dictCount:
+  #   LogEntry ("{},{}".format(strGroup,dictCount[strGroup]))
   LogEntry("Done!")
 
 if __name__ == '__main__':
