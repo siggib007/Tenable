@@ -281,14 +281,11 @@ def CheckMembers(lstValues):
 def main():
   global ISO
   global bNotifyEnabled
-  # global dictConfig
-  # global iLoc
   global iMinQuiet
   global iTimeOut
   global iTotalSleep
   global objLogOut
   global strBaseDir
-  # global strBaseURL
   global strFormat
   global strNotifyChannel
   global strNotifyToken
@@ -297,7 +294,6 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
-  # global strHeader
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -398,7 +394,6 @@ def main():
             strValueID = dictValue["uuid"]
             strValue = dictValue["value"]
             dictAllValues[strValue] = strValueID
-            # LogEntry ("{}: {}".format(strValue,strValueID))
     else:
         LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
   else:
@@ -425,7 +420,7 @@ def main():
           if iMemberCount < 10000:
             dictMembers = CheckMembers(lstMembers)
           else:
-            #skip this group, it has too many members
+            #skip this group, it has too many entries
             continue
           strID = dictTG["id"]
           dictCount[strName] = iMemberCount
@@ -442,7 +437,7 @@ def main():
             dictFilters["asset"]["and"].append(dictFilterObj)
           dictFilterObj = {}
           if dictMembers["dns"] != "":
-            dictFilterObj["field"] = "dns"
+            dictFilterObj["field"] = "fqdn"
             dictFilterObj["operator"] = "eq"
             dictFilterObj["value"] = dictMembers["dns"]
             dictFilters["asset"]["and"].append(dictFilterObj)      
@@ -460,7 +455,6 @@ def main():
             strMethod = "post"
             strAPIFunction = "tags/values/"
             strAction = "create"
-            # LogEntry("Payload: {}".format(dictPayload))
 
           strURL = strBaseURL + strAPIFunction
           LogEntry("Submitting request to {}".format(strAction))
