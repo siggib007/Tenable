@@ -217,6 +217,68 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def ValidateIP(strToCheck):
+	Quads = strToCheck.split(".")
+	if len(Quads) != 4:
+		return False
+	# end if
+
+	for Q in Quads:
+		try:
+			iQuad = int(Q)
+		except ValueError:
+			return False
+		# end try
+
+		if iQuad > 255 or iQuad < 0:
+			return False
+		# end if
+
+	return True
+
+def CheckMembers(strCheck):
+  lstIPv4 = []
+  lstHost = []
+  dictReturn = {}
+  lstValues = strCheck.split(",")
+  for strValue in lstValues:
+    if strValue.find(":") > 0:
+      #Value is an IPv6, unable to process right now
+      pass
+    elif strValue.find("-") > 0:
+      lstValueParts = strValue.split("-")
+      if len(lstValues) == 2:
+        if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
+          lstIPv4.append(strValue)
+        else:
+          lstHost.append(strValue)
+      else:
+        lstHost.append(strValue)
+    elif len(strValue)-strValue.rfind("/") == 3:
+      lstValueParts = strValue.split("/")
+      bTemp = True
+      if len(lstValueParts) != 2:
+        bTemp = False
+      try:
+        iValue = int(lstValueParts[1])
+      except ValueError:
+        bTemp = False
+      if iValue < 1 or iValue > 32:
+        bTemp = False
+      if not ValidateIP(lstValueParts[0]):
+        bTemp = False
+      if bTemp:
+        lstIPv4.append(strValue)
+      else:
+        lstHost.append(strValue)
+    elif ValidateIP(strValue): 
+      lstIPv4.append(strValue)
+    else:
+      lstHost.append(strValue)
+  dictReturn["ipv4"] = ",".join(lstIPv4)
+  dictReturn["dns"] = ",".join(lstHost)
+  return dictReturn
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -357,6 +419,11 @@ def main():
           strMembers = dictTG["members"]
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
+          if iMemberCount < 10000:
+            dictMembers = CheckMembers(strMembers)
+          else:
+            #skip this group, it has too many members
+            continue
           strName = dictTG["name"]
           strID = dictTG["id"]
           dictCount[strName] = iMemberCount
@@ -365,7 +432,7 @@ def main():
           dictFilterObj = {}
           dictFilterObj["field"] = "ipv4"
           dictFilterObj["operator"] = "eq"
-          dictFilterObj["value"] = strMembers
+          dictFilterObj["value"] = dictMembers["ipv4"]
           dictFilters = {}
           dictFilters["asset"] = {}
           dictFilters["asset"]["and"] = []
