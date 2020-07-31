@@ -220,14 +220,14 @@ def CleanStr(strOld):
 def main():
   global ISO
   global bNotifyEnabled
-  global dictConfig
-  global iLoc
+  # global dictConfig
+  # global iLoc
   global iMinQuiet
   global iTimeOut
   global iTotalSleep
   global objLogOut
   global strBaseDir
-  global strBaseURL
+  # global strBaseURL
   global strFormat
   global strNotifyChannel
   global strNotifyToken
@@ -236,10 +236,7 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
-  global strHeader
-  global dictChunkStatus
-  global dictDur
-  global dictCount
+  # global strHeader
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -248,8 +245,6 @@ def main():
   iRowCount = 1
   tStart=time.time()
 
-  dictChunkStatus = {}
-  dictDur = {}
   dictCount = {}  
 
   strBaseDir = os.path.dirname(sys.argv[0])
@@ -364,6 +359,7 @@ def main():
           iMemberCount = len(lstMembers)
           strName = dictTG["name"]
           strID = dictTG["id"]
+          dictCount[strName] = iMemberCount
           LogEntry ("Processing group {} with ID {}. Contains {} members. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
           dictPayload = {}
           dictFilterObj = {}
@@ -399,9 +395,11 @@ def main():
             else:
               LogEntry("No UUID\n{}".format(APIResponse),True)
           else:
-            LogEntry("Response is not dictionary\n{}\n{}".format(APIResponse,dictPayload))
+            LogEntry("Response is not dictionary\n{}".format(APIResponse))
           iRowCount += 1
 
+  for strGroup in dictCount:
+    LogEntry ("{},{}".format(strGroup,dictCount[strGroup]))
   LogEntry("Done!")
 
 if __name__ == '__main__':
