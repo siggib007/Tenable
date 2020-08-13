@@ -216,6 +216,49 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def FetchData(strAPIFunction,strBaseURL,strHeader):
+  iLoc = strAPIFunction.rfind("/")
+  strAction = strAPIFunction[iLoc+1:]
+  strOutFile = strOutPath + strAction + "WBFilters.csv"
+  objFileOut = open(strOutFile,"w")
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "filters/workbenches/vulnerabilities"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Pulling a list of filter specs for vulns")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "filters" in APIResponse:
+    if isinstance(APIResponse["filters"],list):
+        for dictValue in APIResponse["filters"]:
+          strName = dictValue["name"]
+          strRName = dictValue["readable_name"]
+          if "operators" in dictValue:
+            if isinstance(dictValue["operators"],list):
+              strOperators = ",".join(dictValue["operators"])
+            else:
+              LogEntry("Operator not a list")
+          else:
+            LogEntry("No operator value")
+          if "control" in dictValue:
+            if "type" in dictValue["control"]:
+              strControl = dictValue["control"]["type"]
+            else:
+              strControl = "notype"
+            if "regex" in dictValue["control"]:
+              strControl += "; regex:" + dictValue["control"]["regex"]
+            if "list" in dictValue["control"]:
+              if isinstance(dictValue["control"]["list"],list):
+                if len(dictValue["control"]["list"]) < 12:
+                  strControl += " list of: " + ",".join(dictValue["control"]["list"])
+                else:
+                  strControl += " list of {} elements".format(len(dictValue["control"]["list"]))
+          objFileOut.write ("{},{},{},{}\n".format(strName,strRName,strOperators,strControl))
+    else:
+        LogEntry("filters is not a list, no idea what to do with this: {}".format(APIResponse),True)
+  else:
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)  
+  objFileOut.close()
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -232,6 +275,7 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global strOutPath
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -275,8 +319,7 @@ def main():
   dictConfig = processConf(strConf_File)
 
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
-    strHeader={
-      'Content-type':'application/json',
+    strHeader={'Content-type':'application/json',
       'X-ApiKeys':'accessKey=' + dictConfig["AccessKey"] + ';secretKey=' + dictConfig["Secret"]}
   else:
     LogEntry("API Keys not provided, exiting.",True)
@@ -305,6 +348,18 @@ def main():
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
 
+  if "OutPath" in dictConfig:
+    strOutPath = dictConfig["OutPath"]
+  else:
+    strOutPath = strBaseDir
+
+  strOutPath = strOutPath.replace("\\","/")
+
+  if strOutPath[-1:] != "/":
+    strOutPath += "/"
+
+  LogEntry ("Files will be written to {}".format(strOutPath))
+
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
       iTimeOut = int(dictConfig["TimeOut"])
@@ -317,42 +372,7 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  dictPayload = {}
-  strMethod = "get"
-  strAPIFunction = "filters/workbenches/vulnerabilities"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of filter specs for vulns")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "filters" in APIResponse:
-    if isinstance(APIResponse["filters"],list):
-        for dictValue in APIResponse["filters"]:
-          strName = dictValue["name"]
-          strRName = dictValue["readable_name"]
-          if "operators" in dictValue:
-            if isinstance(dictValue["operators"],list):
-              strOperators = ",".join(dictValue["operators"])
-            else:
-              LogEntry("Operator not a list")
-          else:
-            LogEntry("No operator value")
-          if "control" in dictValue:
-            if "type" in dictValue["control"]:
-              strControl = dictValue["control"]["type"]
-            else:
-              strControl = "notype"
-            if "regex" in dictValue["control"]:
-              strControl += "; regex:" + dictValue["control"]["regex"]
-            if "list" in dictValue["control"]:
-              if isinstance(dictValue["control"]["list"],list):
-                if len(dictValue["control"]["list"]) < 12:
-                  strControl += " list of: " + ",".join(dictValue["control"]["list"])
-                else:
-                  strControl += " list of {} elements".format(len(dictValue["control"]["list"]))
-          LogEntry ("{},{},{},{}".format(strName,strRName,strOperators,strControl))
-    else:
-        LogEntry("filters is not a list, no idea what to do with this: {}".format(APIResponse),True)
-  else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+  FetchData("filters/workbenches/vulnerabilities",strBaseURL,strHeader)
 
   LogEntry("Done!")
 
