@@ -219,13 +219,14 @@ def CleanStr(strOld):
 def FetchData(strAPIFunction,strBaseURL,strHeader):
   iLoc = strAPIFunction.rfind("/")
   strAction = strAPIFunction[iLoc+1:]
-  strOutFile = strOutPath + strAction + "WBFilters.csv"
+  strOutFile = strOutPath + strAction + "WBFilters.txt"
   objFileOut = open(strOutFile,"w")
+  objFileOut.write("Filter Name\tReadable Name\tOperators\tControl\n")
   dictPayload = {}
   strMethod = "get"
   strAPIFunction = "filters/workbenches/vulnerabilities"
   strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of filter specs for vulns")
+  LogEntry("Pulling a list of filter specs for {}".format(strAction))
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "filters" in APIResponse:
     if isinstance(APIResponse["filters"],list):
@@ -234,7 +235,7 @@ def FetchData(strAPIFunction,strBaseURL,strHeader):
           strRName = dictValue["readable_name"]
           if "operators" in dictValue:
             if isinstance(dictValue["operators"],list):
-              strOperators = ",".join(dictValue["operators"])
+              strOperators = "|".join(dictValue["operators"])
             else:
               LogEntry("Operator not a list")
           else:
@@ -245,14 +246,18 @@ def FetchData(strAPIFunction,strBaseURL,strHeader):
             else:
               strControl = "notype"
             if "regex" in dictValue["control"]:
-              strControl += "; regex:" + dictValue["control"]["regex"]
+              strControl += " match regex:" + dictValue["control"]["regex"]
             if "list" in dictValue["control"]:
               if isinstance(dictValue["control"]["list"],list):
                 if len(dictValue["control"]["list"]) < 12:
-                  strControl += " list of: " + ",".join(dictValue["control"]["list"])
+                  if isinstance(dictValue["control"]["list"][0],str):
+                    strControl += " list of: " + "|".join(dictValue["control"]["list"])
+                  else:
+                    strControl += " list of {} {} elements".format(len(dictValue["control"]["list"]),
+                      type(dictValue["control"]["list"][0]))
                 else:
                   strControl += " list of {} elements".format(len(dictValue["control"]["list"]))
-          objFileOut.write ("{},{},{},{}\n".format(strName,strRName,strOperators,strControl))
+          objFileOut.write ("{}\t{}\t{}\t{}\n".format(strName,strRName,strOperators,strControl))
     else:
         LogEntry("filters is not a list, no idea what to do with this: {}".format(APIResponse),True)
   else:
@@ -373,6 +378,7 @@ def main():
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
   FetchData("filters/workbenches/vulnerabilities",strBaseURL,strHeader)
+  FetchData("filters/workbenches/assets",strBaseURL,strHeader)
 
   LogEntry("Done!")
 
