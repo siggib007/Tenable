@@ -5,6 +5,7 @@ Author Siggi Bjarnason Copyright 2020
 Following packages need to be installed as administrator
 pip install requests
 pip install jason
+pip install pymysql
 
 '''
 # Import libraries
@@ -17,6 +18,7 @@ import urllib.parse as urlparse
 import subprocess as proc
 import json
 import platform
+import pymysql
 # End imports
 
 #avoid insecure warning
@@ -30,6 +32,77 @@ iTotalSleep = 0
 tLastCall = 0
 iLineCount = 0
 iTotalScan = 0
+
+def SQLConn(strServer, strDBUser, strDBPWD, strInitialDB):
+  try:
+    # Open database connection
+    return pymysql.connect(strServer, strDBUser, strDBPWD, strInitialDB)
+  except pymysql.err.InternalError as err:
+    print("Error: unable to connect: {}".format(err))
+    sys.exit(5)
+  except pymysql.err.OperationalError as err:
+    print("Operational Error: unable to connect: {}".format(err))
+    sys.exit(5)
+  except pymysql.err.ProgrammingError as err:
+    print("Programing Error: unable to connect: {}".format(err))
+    sys.exit(5)
+
+def SQLQuery(strSQL, db):
+  try:
+    # prepare a cursor object using cursor() method
+    dbCursor = db.cursor()
+    # Execute the SQL command
+    dbCursor.execute(strSQL)
+    # Count rows
+    iRowCount = dbCursor.rowcount
+    if strSQL[:6].lower() == "select" or strSQL[:4].lower() == "call":
+      dbResults = dbCursor.fetchall()
+    else:
+      db.commit()
+      dbResults = ()
+    return [iRowCount, dbResults]
+  except pymysql.err.InternalError as err:
+    if strSQL[:6].lower() != "select":
+      db.rollback()
+    return "Internal Error: unable to execute: {}\n{}".format(err, strSQL)
+  except pymysql.err.ProgrammingError as err:
+    if strSQL[:6].lower() != "select":
+      db.rollback()
+    return "Programing Error: unable to execute: {}\n{}".format(err, strSQL)
+  except pymysql.err.OperationalError as err:
+    if strSQL[:6].lower() != "select":
+      db.rollback()
+    return "Programing Error: unable to execute: {}\n{}".format(err, strSQL)
+  except pymysql.err.IntegrityError as err:
+    if strSQL[:6].lower() != "select":
+      db.rollback()
+    return "Integrity Error: unable to execute: {}\n{}".format(err, strSQL)
+  except pymysql.err.DataError as err:
+    if strSQL[:6].lower() != "select":
+      db.rollback()
+    return "Data Error: unable to execute: {}\n{}".format(err, strSQL)
+
+def ValidReturn(lsttest):
+  if isinstance(lsttest, list):
+    if len(lsttest) == 2:
+      if isinstance(lsttest[0], int) and isinstance(lsttest[1], tuple):
+        return True
+      else:
+        return False
+    else:
+      return False
+  else:
+    return False
+
+def DBClean(strText):
+  if strText is None:
+    return ""
+  else:
+    strTemp = strText.encode("ascii", "ignore")
+    strTemp = strTemp.decode("ascii", "ignore")
+    strTemp = strTemp.replace("\\", "\\\\")
+    strTemp = strTemp.replace("'", "\\'")
+    return strTemp
 
 def processConf(strConf_File):
 
@@ -579,7 +652,6 @@ def main():
   LogEntry ("Stats and result data saved to {}".format(strFileout))
   # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
-
 
 if __name__ == '__main__':
   main()
