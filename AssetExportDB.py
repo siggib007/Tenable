@@ -31,6 +31,11 @@ iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
 
+def Date2DB(strDate):
+  strTemp = DBClean(strDate)
+  strTemp = strTemp.replace("T"," ")
+  return strTemp.replace("Z","")
+
 def SQLConn(strServer, strDBUser, strDBPWD, strInitialDB):
   try:
     # Open database connection
@@ -295,19 +300,107 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       iRowCount += iChunkLen
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
-      for lstChunkItem in APIResponse:
-        if "asset" in lstChunkItem:
-          if "uuid" in lstChunkItem["asset"]:
-            strAssetID = lstChunkItem["asset"]["uuid"]
-          if "hostname" in lstChunkItem["asset"]:
-            strHost = lstChunkItem["asset"]["hostname"]
-          if "ipv4" in lstChunkItem["asset"]:
-            if lstChunkItem["asset"]["ipv4"] != strHost:
-              strHost += "({})".format(lstChunkItem["asset"]["ipv4"])
-        if "output" in lstChunkItem:
-          strOutput = lstChunkItem["output"]
-        LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
-        # ParseResults(strAssetID,strHost,strOutput)
+      for dictChunkItem in APIResponse:
+        if "id" in dictChunkItem:
+          strAssetID = "'" + DBClean(dictChunkItem["id"]) + "'"
+        else:
+          strAssetID = "''"
+        if "has_agent" in dictChunkItem:
+          if dictChunkItem["has_agent"] == True:
+            bHasAgent = True
+          else:
+            bHasAgent = False
+        else:
+          bHasAgent = "NULL"
+        if "created_at" in dictChunkItem:
+          dtCreated = "'" + Date2DB (dictChunkItem["created_at"]) + "'"
+        else:
+          dtCreated = "''"
+        if "updated_at" in dictChunkItem:
+          dtUpdated = "'" + Date2DB (dictChunkItem["updated_at"]) + "'"
+        else:
+          dtUpdated = "''"
+        if "first_seen" in dictChunkItem:
+          dt1stSeen = "'" + Date2DB (dictChunkItem["first_seen"]) + "'"
+        else:
+          dt1stSeen = "''"
+        if "last_seen" in dictChunkItem:
+          dtLastSeen = "'" + Date2DB (dictChunkItem["last_seen"]) + "'"
+        else:
+          dtLastSeen = "''"
+        if "first_scan_time" in dictChunkItem:
+          dtFirstScan = "'" + Date2DB (dictChunkItem["first_scan_time"]) + "'"
+        else:
+          dtFirstScan = "''"
+        if "last_scan_time" in dictChunkItem:
+          dtLastScan = "'" + Date2DB (dictChunkItem["last_scan_time"]) + "'"
+        else:
+          dtLastScan = "''"
+        if "last_authenticated_scan_date" in dictChunkItem:
+          dtLastAuthScan = "'" + Date2DB (dictChunkItem["last_authenticated_scan_date"]) + "'"
+        else:
+          dtLastAuthScan = "''"
+        if "last_licensed_scan_date" in dictChunkItem:
+          dtLastLicensedScan = "'" + Date2DB (dictChunkItem["last_licensed_scan_date"]) + "'"
+        else:
+          dtLastLicensedScan = "''"
+        if "agent_uuid" in dictChunkItem:
+          strAgentUUID = "'" + DBClean (dictChunkItem["agent_uuid"]) + "'"
+        else:
+          strAgentUUID = "''"
+        if "bios_uuid" in dictChunkItem:
+          strBIOSid = "'" + DBClean (dictChunkItem["bios_uuid"]) + "'"
+        else:
+          strBIOSid = "''"
+        if "agent_names" in dictChunkItem:
+          strAgentNames = "'" + DBClean (" | ".join(dictChunkItem["agent_names"])) + "'"
+        else:
+          strAgentNames = "''"
+        if "ipv4s" in dictChunkItem:
+          strIPv4 = "'" + DBClean (" | ".join(dictChunkItem["ipv4s"])) + "'"
+        else:
+          strIPv4 = "''"
+        if "ipv6s" in dictChunkItem:
+          strIPv6 = "'" + DBClean (" | ".join(dictChunkItem["ipv6s"])) + "'"
+        else:
+          strIPv6 = "''"
+        if "fqdns" in dictChunkItem:
+          strFQDNs = "'" + DBClean (" | ".join(dictChunkItem["fqdns"])) + "'"
+        else:
+          strFQDNs = "''"
+        if "mac_addresses" in dictChunkItem:
+          strMACAddr = "'" + DBClean (" | ".join(dictChunkItem["mac_addresses"])) + "'"
+        else:
+          strMACAddr = "''"
+        if "netbios_names" in dictChunkItem:
+          strNetBIOS = "'" + DBClean (" | ".join(dictChunkItem["netbios_names"])) + "'"
+        else:
+          strNetBIOS = "''"
+        if "operating_systems" in dictChunkItem:
+          strOS = "'" + DBClean (" | ".join(dictChunkItem["operating_systems"])) + "'"
+        else:
+          strOS = "''"
+        if "hostnames" in dictChunkItem:
+          strHostName = "'" + DBClean (" | ".join(dictChunkItem["hostnames"])) + "'"
+        else:
+          strHostName = "''"
+
+        strSQL = ("INSERT INTO VulnMgmt.TnblAssets (vcAssetID, bHasAgent, dtCreated, dtUpdated,"
+                  " dt1stSeen, dtLastSeen, dtFirstScan, dtLastScan, dtLastAuthScan, dtLastLicensedScan,"
+                  " vcAgentUUID, vcBIOSid, vcAgentName, vcIPv4s, vcIPv6s, vcFQDNs, vcMACAddr,"
+                  " vcNetbiosNames, vcOS, vcHostNames)"
+                  " VALUES({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, "
+                  " {}, {}, {}, {}, {});".format(strAssetID,bHasAgent,dtCreated,dtUpdated,dt1stSeen,
+                  dtLastSeen,dtFirstScan,dtLastScan,dtLastAuthScan,dtLastLicensedScan,strAgentUUID,
+                  strBIOSid,strAgentNames,strIPv4,strIPv6,strFQDNs,strMACAddr,strNetBIOS,strOS,
+                  strHostName))
+        lstReturn = SQLQuery(strSQL, dbConn)
+        if not ValidReturn(lstReturn):
+          LogEntry("Unexpected: {}".format(lstReturn))
+          CleanExit("due to unexpected SQL return, please check the logs")
+        elif lstReturn[0] != 1:
+          LogEntry ("Records affected {}, expected 1 record affected".format(lstReturn[0]))
+
 
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
@@ -405,6 +498,7 @@ def main():
   global dictChunkStatus
   global dictDur
   global dictCount
+  global dbConn
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -540,14 +634,14 @@ def main():
   else:
     LogEntry("No Initial DB",True)
 
-  strSQL = ""
+  strSQL = "TRUNCATE VulnMgmt.TnblAssets;"
   dbConn = SQLConn(strServer, strDBUser, strDBPWD, strInitialDB)
   lstReturn = SQLQuery(strSQL, dbConn)
   if not ValidReturn(lstReturn):
     LogEntry("Unexpected: {}".format(lstReturn))
     CleanExit("due to unexpected SQL return, please check the logs")
   else:
-    LogEntry("Fetched {} rows".format(len(lstReturn[1])))
+    LogEntry("Truncated VulnMgmt.TnblAssets")
 
   dictPayload["num_assets"] = iChunkSize
   dictPayload["filters"] = dictFilter
