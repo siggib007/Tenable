@@ -1,5 +1,5 @@
 '''
-Tenable PluginID Export API Script
+Tenable Asset Export to DB API Script
 Author Siggi Bjarnason Copyright 2020
 
 Following packages need to be installed as administrator
@@ -30,8 +30,6 @@ iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
-iLineCount = 0
-iTotalScan = 0
 
 def SQLConn(strServer, strDBUser, strDBPWD, strInitialDB):
   try:
@@ -156,7 +154,7 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  if True:
+  if not bNotifyEnabled:
     return
   global strNotifyURL
   global strNotifyToken
@@ -187,8 +185,6 @@ def SendNotification (strMsg):
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
   objLogOut.close()
-  objRawOut.close()
-  objOutFile.close()
   sys.exit(9)
 
 def LogEntry(strMsg,bAbort=False):
@@ -289,10 +285,6 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
 
-    try:
-      objRawOut.write ("{}".format(APIResponse))
-    except Exception as err:
-      LogEntry ("Issue with writing chunk to file. {}".format(err))
     if isinstance(APIResponse,str):
       LogEntry(APIResponse,True)
       break
@@ -314,8 +306,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
               strHost += "({})".format(lstChunkItem["asset"]["ipv4"])
         if "output" in lstChunkItem:
           strOutput = lstChunkItem["output"]
-        # LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
-        ParseResults(strAssetID,strHost,strOutput)
+        LogEntry (" AssetID:{}\n Host:{}\n Output:\n{}".format(strAssetID,strHost,strOutput))
+        # ParseResults(strAssetID,strHost,strOutput)
 
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
@@ -323,64 +315,14 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
-def ParseResults(strAssetID,strHost,strOutput):
-  global iTotalScan
-  global iLineCount
-
-  lstHeaders = []
-  lstHeaders.append("AssetID")
-  lstHeaders.append("Host")
-  lstStats = []
-  lstStats.append(strAssetID)
-  lstStats.append(strHost)
-  lstOutput = strOutput.splitlines()
-  del lstOutput[0]
-  del lstOutput[0]
-  for strLine in lstOutput:
-    strLineParts = strLine.split(": ")
-    if len(strLineParts) > 1:
-      lstHeaders.append(CleanStr(strLineParts[0]))
-      if strLineParts[0].strip() == "Port range":
-        strTemp = strLineParts[1].replace(",","|")
-        lstStats.append(CleanStr(strTemp))
-      elif strLineParts[0].strip() == "Scan duration":
-        iScanDur = int(strLineParts[1][:-4])
-        iTotalScan += iScanDur
-        lstStats.append(str(iScanDur))
-      else:
-        lstStats.append(CleanStr(strLineParts[1]))
-  if iLineCount == 0:
-    objOutFile.write("{}\n".format(",".join(lstHeaders)))
-  objOutFile.write("{}\n".format(",".join(lstStats)))
-  if lstStats[6] in dictCount:
-    dictCount[lstStats[6]] += 1
-  else:
-    dictCount[lstStats[6]] = 1
-  if lstStats[6] in dictDur:
-    dictDur[lstStats[6]] += iScanDur
-  else:
-    dictDur[lstStats[6]] = iScanDur
-  iLineCount += 1
-  print ("Processed {} lines....".format(iLineCount),end="\r")
-
 def BulkExport(strFunction):
 
-  global objRawOut
   global iRowCount
-  global strRAWout
 
   iRowCount = 0
   iTotalSleep = 0
   tStart=time.time()
   dictResults = {}
-
-  strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
-  try:
-    objRawOut = open(strRAWout,"w")
-  except PermissionError:
-    LogEntry("unable to open output file {} for writing, "
-      "permission denied.".format(strRAWout),True)
-  LogEntry ("Raw json file {} created".format(strRAWout))
 
   strAPIFunction = strFunction + "/export/"
 
@@ -436,7 +378,6 @@ def BulkExport(strFunction):
   dictResults["Sec"]=iSec
   dictResults["min"]=iMin
   dictResults["hours"]=iHours
-  objRawOut.close()
   return dictResults
 
 def main():
@@ -444,13 +385,11 @@ def main():
   global bNotifyEnabled
   global dictConfig
   global dictPayload
-  global iLimit
   global iLoc
   global iMinQuiet
   global iRowCount
   global iTimeOut
   global iTotalSleep
-  global objRawOut
   global objLogOut
   global strBaseDir
   global strBaseURL
@@ -458,7 +397,6 @@ def main():
   global strNotifyChannel
   global strNotifyToken
   global strNotifyURL
-  global strOutDir
   global strScriptHost
   global strScriptName
   global tLastCall
@@ -467,13 +405,11 @@ def main():
   global dictChunkStatus
   global dictDur
   global dictCount
-  global objOutFile
 
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  objRawOut = None
   iRowCount = 0
   tStart=time.time()
 
@@ -483,7 +419,6 @@ def main():
   dictDur = {}
   dictCount = {}  
   
-
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
   strRealPath = strRealPath.replace("\\","/")
@@ -493,11 +428,8 @@ def main():
   if strBaseDir[-1:] != "/":
     strBaseDir += "/"
   strLogDir  = strBaseDir + "Logs/"
-  strOutDir  = strBaseDir + "json/"
   if strLogDir[-1:] != "/":
     strLogDir += "/"
-  if strOutDir[-1:] != "/":
-    strOutDir += "/"
   
   iLoc = sys.argv[0].rfind(".")
   strConf_File = sys.argv[0][:iLoc] + ".ini"
@@ -505,9 +437,6 @@ def main():
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
     print ("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
-  if not os.path.exists (strOutDir) :
-    os.makedirs(strOutDir)
-    print ("\nPath '{0}' for output files didn't exists, so I create it!\n".format(strOutDir))
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
@@ -515,12 +444,11 @@ def main():
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
   strScriptHost = platform.node().upper()
 
-  print ("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
+  print ("This is a script to download Tenable Asset information via API and write to DB. This is running under Python Version {}".format(strVersion))
   print ("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
   print ("The time now is {}".format(dtNow))
   print ("Logs saved to {}".format(strLogFile))
-  print ("Output files saved to {}".format(strOutDir))
   objLogOut = open(strLogFile,"w",1)
   
   dictConfig = processConf(strConf_File)
@@ -558,14 +486,6 @@ def main():
     LogEntry("Missing configuration items for Slack notifications, "
       "turning slack notifications off")
 
-  if "Limit" in dictConfig:
-    if isInt(dictConfig["Limit"]):
-      iLimit = int(dictConfig["Limit"])
-    else:
-      LogEntry("Invalid limit, setting to defaults of {}".format(iLimit))
-  else:
-    LogEntry("No limit provided, setting to defaults of {}".format(iLimit))
-
   if "APIBaseURL" in dictConfig:
     strBaseURL = dictConfig["APIBaseURL"]
   else:
@@ -600,9 +520,6 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  if "OutFile" in dictConfig:
-    strFileout = dictConfig["OutFile"]
-
   if "dbUser" in dictConfig:
     strDBUser = dictConfig["dbUser"]
   else:
@@ -623,16 +540,6 @@ def main():
   else:
     LogEntry("No Initial DB",True)
 
-  if strFileout is None or strFileout =="":
-    LogEntry("outfile not define, using defaults")
-    strFileout = strOutDir + strScriptName[:iLoc] + ISO + ".csv"
-  elif not os.path.exists(os.path.dirname(strFileout)):
-    LogEntry ("\nPath '{0}' for output files didn't exists, "
-        "so I'm creating it!\n".format(strFileout))
-    os.makedirs(os.path.dirname(strFileout))
-  strFileout = strFileout.replace("\\","/")
-  LogEntry ("Output will be written to {}".format(strFileout))
-
   strSQL = ""
   dbConn = SQLConn(strServer, strDBUser, strDBPWD, strInitialDB)
   lstReturn = SQLQuery(strSQL, dbConn)
@@ -642,44 +549,19 @@ def main():
   else:
     LogEntry("Fetched {} rows".format(len(lstReturn[1])))
 
-  try:
-    objOutFile = open(strFileout,"w")
-  except PermissionError:
-    LogEntry("unable to open output file {} for writing, "
-      "permission denied.".format(strFileout),True)
-
   dictPayload["num_assets"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
   dictResults={}
-  dictResults = BulkExport ("vulns")
-
-  LogEntry ("Completed processing, here are the stats:")
-  strOut = "\n\nScan Policy,Count,Duration,Avg Sec,Ave Min"
-  print(strOut)
-  objOutFile.write ("{}\n".format(strOut))
-  for strPolicy in dictCount:
-    iAvgSec = dictDur[strPolicy]/dictCount[strPolicy]
-    iAvgMin = iAvgSec/60
-    strOut = ("{},{},{},{:.2f},{:.2f}".format(strPolicy, dictCount[strPolicy],dictDur[strPolicy],iAvgSec,iAvgMin))
-    print (strOut)
-    objOutFile.write ("{}\n".format(strOut))
+  dictResults = BulkExport ("assets")
   
-  iAvgSec = iTotalScan/iLineCount
-  iAvgMin = iAvgSec/60
-  strOut = ("\n\nTotal scans: {}\nTotal Scan Dur: {} sec\nAverage {:.2f} sec per scan or {:.2f} min".format(iLineCount,iTotalScan,iAvgSec,iAvgMin))
-  print (strOut)
-  objOutFile.write ("{}\n".format(strOut))
-  objOutFile.close()
   LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults["Elapse"],int(dictResults["hours"]),
     int(dictResults["min"]),dictResults["Sec"]))
 
   LogEntry ("Completed at {}".format(dtNow))
-  LogEntry ("Raw json save to {}".format(strRAWout))
-  LogEntry ("Stats and result data saved to {}".format(strFileout))
-  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
 if __name__ == '__main__':
