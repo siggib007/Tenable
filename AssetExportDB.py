@@ -603,6 +603,26 @@ def main():
   if "OutFile" in dictConfig:
     strFileout = dictConfig["OutFile"]
 
+  if "dbUser" in dictConfig:
+    strDBUser = dictConfig["dbUser"]
+  else:
+    LogEntry("No DB UserID",True)
+
+  if "dbPWD" in dictConfig:
+    strDBPWD = dictConfig["dbPWD"]
+  else:
+    LogEntry("No DB PWD",True)
+
+  if "Server" in dictConfig:
+    strServer = dictConfig["Server"]
+  else:
+    LogEntry("No DB Server",True)
+
+  if "InitialDB" in dictConfig:
+    strInitialDB = dictConfig["InitialDB"]
+  else:
+    LogEntry("No Initial DB",True)
+
   if strFileout is None or strFileout =="":
     LogEntry("outfile not define, using defaults")
     strFileout = strOutDir + strScriptName[:iLoc] + ISO + ".csv"
@@ -612,6 +632,15 @@ def main():
     os.makedirs(os.path.dirname(strFileout))
   strFileout = strFileout.replace("\\","/")
   LogEntry ("Output will be written to {}".format(strFileout))
+
+  strSQL = ""
+  dbConn = SQLConn(strServer, strDBUser, strDBPWD, strInitialDB)
+  lstReturn = SQLQuery(strSQL, dbConn)
+  if not ValidReturn(lstReturn):
+    LogEntry("Unexpected: {}".format(lstReturn))
+    CleanExit("due to unexpected SQL return, please check the logs")
+  else:
+    LogEntry("Fetched {} rows".format(len(lstReturn[1])))
 
   try:
     objOutFile = open(strFileout,"w")
