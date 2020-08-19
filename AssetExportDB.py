@@ -408,7 +408,6 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
         print ("Processed {} lines....".format(iLoop),end="\r")
         iLoop += 1
 
-
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
   strTemp = strTemp.replace(',','')
