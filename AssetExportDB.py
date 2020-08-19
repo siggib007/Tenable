@@ -32,9 +32,13 @@ iTotalSleep = 0
 tLastCall = 0
 
 def Date2DB(strDate):
-  strTemp = DBClean(strDate)
+  if strDate == "":
+    return "NULL"
+  if strDate is None:
+    return "NULL"
+  strTemp = DBClean(strDate,999)
   strTemp = strTemp.replace("T"," ")
-  return strTemp.replace("Z","")
+  return "'" + strTemp.replace("Z","") + "'"
 
 def SQLConn(strServer, strDBUser, strDBPWD, strInitialDB):
   try:
@@ -97,7 +101,7 @@ def ValidReturn(lsttest):
   else:
     return False
 
-def DBClean(strText):
+def DBClean(strText,iLimit):
   if strText is None:
     return ""
   else:
@@ -105,7 +109,7 @@ def DBClean(strText):
     strTemp = strTemp.decode("ascii", "ignore")
     strTemp = strTemp.replace("\\", "\\\\")
     strTemp = strTemp.replace("'", "\\'")
-    return strTemp
+    return strTemp[:iLimit]
 
 def processConf(strConf_File):
 
@@ -300,9 +304,10 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       iRowCount += iChunkLen
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
+      iLoop = 1
       for dictChunkItem in APIResponse:
         if "id" in dictChunkItem:
-          strAssetID = "'" + DBClean(dictChunkItem["id"]) + "'"
+          strAssetID = "'" + DBClean(dictChunkItem["id"],50) + "'"
         else:
           strAssetID = "''"
         if "has_agent" in dictChunkItem:
@@ -313,75 +318,75 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
         else:
           bHasAgent = "NULL"
         if "created_at" in dictChunkItem:
-          dtCreated = "'" + Date2DB (dictChunkItem["created_at"]) + "'"
+          dtCreated = Date2DB (dictChunkItem["created_at"])
         else:
-          dtCreated = "''"
+          dtCreated = "NULL"
         if "updated_at" in dictChunkItem:
-          dtUpdated = "'" + Date2DB (dictChunkItem["updated_at"]) + "'"
+          dtUpdated = Date2DB (dictChunkItem["updated_at"])
         else:
-          dtUpdated = "''"
+          dtUpdated = "NULL"
         if "first_seen" in dictChunkItem:
-          dt1stSeen = "'" + Date2DB (dictChunkItem["first_seen"]) + "'"
+          dt1stSeen = Date2DB (dictChunkItem["first_seen"])
         else:
-          dt1stSeen = "''"
+          dt1stSeen = "NULL"
         if "last_seen" in dictChunkItem:
-          dtLastSeen = "'" + Date2DB (dictChunkItem["last_seen"]) + "'"
+          dtLastSeen = Date2DB (dictChunkItem["last_seen"])
         else:
-          dtLastSeen = "''"
+          dtLastSeen = "NULL"
         if "first_scan_time" in dictChunkItem:
-          dtFirstScan = "'" + Date2DB (dictChunkItem["first_scan_time"]) + "'"
+          dtFirstScan = Date2DB (dictChunkItem["first_scan_time"])
         else:
-          dtFirstScan = "''"
+          dtFirstScan = "NULL"
         if "last_scan_time" in dictChunkItem:
-          dtLastScan = "'" + Date2DB (dictChunkItem["last_scan_time"]) + "'"
+          dtLastScan = Date2DB (dictChunkItem["last_scan_time"])
         else:
-          dtLastScan = "''"
+          dtLastScan = "NULL"
         if "last_authenticated_scan_date" in dictChunkItem:
-          dtLastAuthScan = "'" + Date2DB (dictChunkItem["last_authenticated_scan_date"]) + "'"
+          dtLastAuthScan = Date2DB (dictChunkItem["last_authenticated_scan_date"])
         else:
-          dtLastAuthScan = "''"
+          dtLastAuthScan = "NULL"
         if "last_licensed_scan_date" in dictChunkItem:
-          dtLastLicensedScan = "'" + Date2DB (dictChunkItem["last_licensed_scan_date"]) + "'"
+          dtLastLicensedScan = Date2DB (dictChunkItem["last_licensed_scan_date"])
         else:
-          dtLastLicensedScan = "''"
+          dtLastLicensedScan = "NULL"
         if "agent_uuid" in dictChunkItem:
-          strAgentUUID = "'" + DBClean (dictChunkItem["agent_uuid"]) + "'"
+          strAgentUUID = "'" + DBClean (dictChunkItem["agent_uuid"],50) + "'"
         else:
           strAgentUUID = "''"
         if "bios_uuid" in dictChunkItem:
-          strBIOSid = "'" + DBClean (dictChunkItem["bios_uuid"]) + "'"
+          strBIOSid = "'" + DBClean (dictChunkItem["bios_uuid"],50) + "'"
         else:
           strBIOSid = "''"
         if "agent_names" in dictChunkItem:
-          strAgentNames = "'" + DBClean (" | ".join(dictChunkItem["agent_names"])) + "'"
+          strAgentNames = "'" + DBClean (" | ".join(dictChunkItem["agent_names"]),990) + "'"
         else:
           strAgentNames = "''"
         if "ipv4s" in dictChunkItem:
-          strIPv4 = "'" + DBClean (" | ".join(dictChunkItem["ipv4s"])) + "'"
+          strIPv4 = "'" + DBClean (" | ".join(dictChunkItem["ipv4s"]),990) + "'"
         else:
           strIPv4 = "''"
         if "ipv6s" in dictChunkItem:
-          strIPv6 = "'" + DBClean (" | ".join(dictChunkItem["ipv6s"])) + "'"
+          strIPv6 = "'" + DBClean (" | ".join(dictChunkItem["ipv6s"]),990) + "'"
         else:
           strIPv6 = "''"
         if "fqdns" in dictChunkItem:
-          strFQDNs = "'" + DBClean (" | ".join(dictChunkItem["fqdns"])) + "'"
+          strFQDNs = "'" + DBClean (" | ".join(dictChunkItem["fqdns"]),990) + "'"
         else:
           strFQDNs = "''"
         if "mac_addresses" in dictChunkItem:
-          strMACAddr = "'" + DBClean (" | ".join(dictChunkItem["mac_addresses"])) + "'"
+          strMACAddr = "'" + DBClean (" | ".join(dictChunkItem["mac_addresses"]),990) + "'"
         else:
           strMACAddr = "''"
         if "netbios_names" in dictChunkItem:
-          strNetBIOS = "'" + DBClean (" | ".join(dictChunkItem["netbios_names"])) + "'"
+          strNetBIOS = "'" + DBClean (" | ".join(dictChunkItem["netbios_names"]),990) + "'"
         else:
           strNetBIOS = "''"
         if "operating_systems" in dictChunkItem:
-          strOS = "'" + DBClean (" | ".join(dictChunkItem["operating_systems"])) + "'"
+          strOS = "'" + DBClean (" | ".join(dictChunkItem["operating_systems"]),990) + "'"
         else:
           strOS = "''"
         if "hostnames" in dictChunkItem:
-          strHostName = "'" + DBClean (" | ".join(dictChunkItem["hostnames"])) + "'"
+          strHostName = "'" + DBClean (" | ".join(dictChunkItem["hostnames"]),990) + "'"
         else:
           strHostName = "''"
 
@@ -400,6 +405,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           CleanExit("due to unexpected SQL return, please check the logs")
         elif lstReturn[0] != 1:
           LogEntry ("Records affected {}, expected 1 record affected".format(lstReturn[0]))
+        print ("Processed {} lines....".format(iLoop),end="\r")
+        iLoop += 1
 
 
 def CleanStr(strOld):
@@ -551,20 +558,21 @@ def main():
     lstStrParts = dictConfig["Filter"].split(":")
     for strFilter in lstStrParts:
       lstFilterParts = strFilter.split("|")
-      if isInt(lstFilterParts[1]):
-        dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
-      elif lstFilterParts[1][0]=="[":
-        lstTmp = lstFilterParts[1][1:-1].split(",")
-        lstClean = []
-        for strTemp in lstTmp:
-          if isInt(strTemp):
-            lstClean.append(int(strTemp))
-          else:
-            lstClean.append(strTemp)
-        dictFilter[lstFilterParts[0]] = lstClean
-      else:
-        dictFilter[lstFilterParts[0]] = lstFilterParts[1]
-    LogEntry ("Found filter:{}".format(dictFilter))
+      if len(lstFilterParts) > 1:
+        if isInt(lstFilterParts[1]):
+          dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
+        elif lstFilterParts[1][0]=="[":
+          lstTmp = lstFilterParts[1][1:-1].split(",")
+          lstClean = []
+          for strTemp in lstTmp:
+            if isInt(strTemp):
+              lstClean.append(int(strTemp))
+            else:
+              lstClean.append(strTemp)
+          dictFilter[lstFilterParts[0]] = lstClean
+        else:
+          dictFilter[lstFilterParts[0]] = lstFilterParts[1]
+      LogEntry ("Found filter:{}".format(dictFilter))
   
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
@@ -643,7 +651,7 @@ def main():
   else:
     LogEntry("Truncated VulnMgmt.TnblAssets")
 
-  dictPayload["num_assets"] = iChunkSize
+  dictPayload["chunk_size"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
   dictResults={}
