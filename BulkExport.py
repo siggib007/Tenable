@@ -21,7 +21,7 @@ import platform
 # End imports
 
 #avoid insecure warning
-requests.packages.urllib3.disable_warnings()
+requests.urllib3.disable_warnings()
 
 #Define few things
 # lstFunctions = ["assets","vulns"]
@@ -87,9 +87,12 @@ iRowCount = 0
 iTotalSleep = 0
 tStart=time.time()
 dictChunkStatus = {}
+bNotifyEnable = False
 
 def SendNotification (strMsg):
-  return
+
+  if not bNotifyEnable:
+    return
   global strNotifyURL
   global strNotifyToken
   global strNotifyChannel
@@ -132,7 +135,6 @@ def LogEntry(strMsg,bAbort=False):
 
 def processConf():
   global strBaseURL
-  global dictHeader
   global strUserName
   global strPWD
   global strNotifyURL
@@ -239,7 +241,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
-  dictResponse = {}
 
   LogEntry ("Doing a {} to URL: \n {}\n".format(strMethod,strURL))
   try:
@@ -315,7 +316,6 @@ def BulkExport(strFunction):
   iRowCount = 0
   iTotalSleep = 0
   tStart=time.time()
-  dictChunkStatus = {}
   dictResults = {}
 
   strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
@@ -353,7 +353,7 @@ def BulkExport(strFunction):
             iChunkCount = len(APIResponse["chunks_available"])
             lstChunks = APIResponse["chunks_available"]
           else:
-            LogEntry ("chunks_available is a {}".type(APIResponse["chunks_available"]))
+            LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
         else:
           LogEntry ("Somethings wrong, 'chunks_available not in response")
         LogEntry ("Status: {} \nChunks Available: {}\n{}\nFetching them".format(strStatus,iChunkCount,lstChunks))
@@ -361,7 +361,6 @@ def BulkExport(strFunction):
         # if strFunction == "vulns":
         #   exit()
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
-  dtNow = time.asctime()
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
@@ -381,16 +380,13 @@ for strfunc in lstFunctions:
   dictResults[strfunc] = BulkExport(strfunc)
 
 LogEntry ("Completed processing, here are the stats:")
-# print (dictResults)
 for strFunction in dictResults:
   LogEntry ("Downloaded {} {}".format(dictResults[strFunction]["RowCount"],strFunction))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults[strFunction]["Elapse"],int(dictResults[strFunction]["hours"]),
     int(dictResults[strFunction]["min"]),dictResults[strFunction]["Sec"]))
 
-
-
 LogEntry ("Completed at {}".format(dtNow))
-# SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
 objLogOut.close()
 
