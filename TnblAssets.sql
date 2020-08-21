@@ -4,9 +4,6 @@
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 
-CREATE DATABASE IF NOT EXISTS `vulnmgmt` /*!40100 DEFAULT CHARACTER SET latin1 */;
-USE `vulnmgmt`;
-
 CREATE TABLE IF NOT EXISTS `tnblassets` (
   `vcAssetID` varchar(55) NOT NULL,
   `bHasAgent` tinyint(1) DEFAULT NULL,
@@ -27,12 +24,15 @@ CREATE TABLE IF NOT EXISTS `tnblassets` (
   `vcMACAddr` varchar(999) NOT NULL,
   `vcNetbiosNames` varchar(999) NOT NULL,
   `vcOS` varchar(999) NOT NULL,
-  `vcHostNames` varchar(999) NOT NULL
+  `vcHostNames` varchar(999) NOT NULL,
+  UNIQUE KEY `idx_tnblassets_vcAssetID` (`vcAssetID`),
+  KEY `idx_tnblassets_vcAgentUUID` (`vcAgentUUID`),
+  KEY `idx_tnblassets_vcBIOSid` (`vcBIOSid`),
+  KEY `idx_tnblassets_vcAgentName` (`vcAgentName`),
+  KEY `idx_tnblassets_vcFQDNs` (`vcFQDNs`),
+  KEY `idx_tnblassets_vcNetbiosNames` (`vcNetbiosNames`),
+  KEY `idx_tnblassets_vcHostNames` (`vcHostNames`)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
-DELETE FROM `tnblassets`;
-/*!40000 ALTER TABLE `tnblassets` DISABLE KEYS */;
-/*!40000 ALTER TABLE `tnblassets` ENABLE KEYS */;
 
 /*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IF(@OLD_FOREIGN_KEY_CHECKS IS NULL, 1, @OLD_FOREIGN_KEY_CHECKS) */;
