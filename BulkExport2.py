@@ -163,7 +163,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
+  LogEntry ("Doing a {} to URL: {} with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
@@ -355,10 +355,10 @@ def main():
 
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
-    print ("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
+    print ("Path '{0}' for log files didn't exists, so I create it!".format(strLogDir))
   if not os.path.exists (strOutDir) :
     os.makedirs(strOutDir)
-    print ("\nPath '{0}' for output files didn't exists, so I create it!\n".format(strOutDir))
+    print ("Path '{0}' for output files didn't exists, so I create it!".format(strOutDir))
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
@@ -495,7 +495,6 @@ def main():
   LogEntry ("Results save to {}".format(strRAWout))
   SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
-
 
 if __name__ == '__main__':
   main()
