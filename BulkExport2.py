@@ -216,10 +216,12 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    APIResponse = APIResponse.encode("ascii","ignore")
+    strResponse = "{}".format(APIResponse)
+    strResponse = strResponse.encode("ascii","ignore")
+    strResponse = strResponse.decode("ascii","ignore")
 
     try:
-      objFileOut.write ("{}".format(APIResponse))
+      objFileOut.write ("{}".format(strResponse))
     except Exception as err:
       LogEntry ("Issue with writing chunk to file. {}".format(err))
     if isinstance(APIResponse,str):
@@ -498,7 +500,7 @@ def main():
   dictResults = BulkExport (strExportType)
 
   LogEntry ("Completed processing, here are the stats:")
-  LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
+  LogEntry ("Downloaded {} {}".format(dictResults["RowCount"],strExportType))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults["Elapse"],int(dictResults["hours"]),
     int(dictResults["min"]),dictResults["Sec"]))
