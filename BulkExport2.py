@@ -215,6 +215,9 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
     strResponse = "{}".format(strRawResults)
     strResponse = strResponse.encode("ascii","ignore")
     strResponse = strResponse.decode("ascii","ignore")
+    strResponse = strResponse[1:-1]
+    if iRowCount > 0:
+      strResponse = "," + strResponse
 
     try:
       objFileOut.write ("{}".format(strResponse))
@@ -232,8 +235,6 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
 
 def BulkExport(strFunction):
-
-  global objFileOut
   global iRowCount
 
   iRowCount = 0
@@ -294,7 +295,6 @@ def BulkExport(strFunction):
   dictResults["Sec"]=iSec
   dictResults["min"]=iMin
   dictResults["hours"]=iHours
-  objFileOut.close()
   return dictResults
 
 def main():
@@ -471,6 +471,7 @@ def main():
   
   try:
     objFileOut = open(strRAWout,"w")
+    objFileOut.write("[")
   except PermissionError:
     LogEntry("unable to open output file {} for writing, "
       "permission denied.".format(strRAWout),True)
@@ -484,7 +485,7 @@ def main():
 
   dictResults={}
   dictResults = BulkExport (strExportType)
-
+  objFileOut.write("]")
   LogEntry ("Completed processing, here are the stats:")
   LogEntry ("Downloaded {} {}".format(dictResults["RowCount"],strExportType))
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
@@ -495,6 +496,7 @@ def main():
   LogEntry ("Results save to {}".format(strRAWout))
   SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
+  objFileOut.close()
 
 if __name__ == '__main__':
   main()
