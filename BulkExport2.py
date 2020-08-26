@@ -38,9 +38,7 @@ def processConf(strConf_File):
   else:
     LogEntry ("Can't find configuration file {}, make sure it is the same directory "
       "as this script and named the same with ini extension".format(strConf_File))
-    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
-    objLogOut.close()
-    sys.exit(9)
+    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost),True)
 
   strLine = "  "
   dictConfig = {}
@@ -50,16 +48,22 @@ def processConf(strConf_File):
   objINIFile.close()
 
   for strLine in strLines:
-    strLine = strLine.strip()
+    strFullLine = strLine.strip()
     iCommentLoc = strLine.find("#")
     if iCommentLoc > -1:
-      strLine = strLine[:iCommentLoc].strip()
+      strLine = strFullLine[:iCommentLoc].strip()
     else:
-      strLine = strLine.strip()
+      strLine = strFullLine.strip()
     if "=" in strLine:
       strConfParts = strLine.split("=")
+      strLineParts = strFullLine.split("=")
       strVarName = strConfParts[0].strip()
-      strValue = strConfParts[1].strip()
+      if "pwd" in strVarName.lower() \
+        or "secret" in strVarName.lower() \
+        or "key" in strVarName.lower():
+          strValue = strLineParts[1].strip()
+      else:
+        strValue = strConfParts[1].strip()
       dictConfig[strVarName] = strValue
       if strVarName == "include":
         LogEntry ("Found include directive: {}".format(strValue))
@@ -153,6 +157,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   global tLastCall
   global iTotalSleep
+  global strRawResults
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
@@ -197,6 +202,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
   else:
+    strRawResults = WebRequest.text
     try:
       return WebRequest.json()
     except Exception as err:
@@ -216,7 +222,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    strResponse = "{}".format(APIResponse)
+    strResponse = "{}".format(strRawResults)
     strResponse = strResponse.encode("ascii","ignore")
     strResponse = strResponse.decode("ascii","ignore")
 
@@ -307,8 +313,6 @@ def main():
   global bNotifyEnabled
   global dictConfig
   global dictPayload
-  global iLimit
-  global iLoc
   global iMinQuiet
   global iRowCount
   global iTimeOut
@@ -317,7 +321,6 @@ def main():
   global objLogOut
   global strBaseDir
   global strBaseURL
-  global strFormat
   global strNotifyChannel
   global strNotifyToken
   global strNotifyURL
@@ -388,19 +391,20 @@ def main():
     lstStrParts = dictConfig["Filter"].split(":")
     for strFilter in lstStrParts:
       lstFilterParts = strFilter.split("|")
-      if isInt(lstFilterParts[1]):
-        dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
-      elif lstFilterParts[1][0]=="[":
-        lstTmp = lstFilterParts[1][1:-1].split(",")
-        lstClean = []
-        for strTemp in lstTmp:
-          if isInt(strTemp):
-            lstClean.append(int(strTemp))
-          else:
-            lstClean.append(strTemp)
-        dictFilter[lstFilterParts[0]] = lstClean
-      else:
-        dictFilter[lstFilterParts[0]] = lstFilterParts[1]
+      if len(lstFilterParts) > 1:
+        if isInt(lstFilterParts[1]):
+          dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
+        elif lstFilterParts[1][0]=="[":
+          lstTmp = lstFilterParts[1][1:-1].split(",")
+          lstClean = []
+          for strTemp in lstTmp:
+            if isInt(strTemp):
+              lstClean.append(int(strTemp))
+            else:
+              lstClean.append(strTemp)
+          dictFilter[lstFilterParts[0]] = lstClean
+        else:
+          dictFilter[lstFilterParts[0]] = lstFilterParts[1]
     LogEntry ("Found filter:{}".format(dictFilter))
   
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
@@ -417,14 +421,6 @@ def main():
     LogEntry("Missing configuration items for Slack notifications, "
       "turning slack notifications off")
 
-  if "Limit" in dictConfig:
-    if isInt(dictConfig["Limit"]):
-      iLimit = int(dictConfig["Limit"])
-    else:
-      LogEntry("Invalid limit, setting to defaults of {}".format(iLimit))
-  else:
-    LogEntry("No limit provided, setting to defaults of {}".format(iLimit))
-
   if "APIBaseURL" in dictConfig:
     strBaseURL = dictConfig["APIBaseURL"]
   else:
@@ -439,20 +435,11 @@ def main():
     else:
       bNotifyEnabled = False
   
-  if "DateTimeFormat" in dictConfig:
-    strFormat = dictConfig["DateTimeFormat"]
-
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
       iTimeOut = int(dictConfig["TimeOut"])
     else:
       LogEntry("Invalid timeout, setting to defaults of {}".format(iTimeOut))
-
-  if "SecondsBeetweenChecks" in dictConfig:
-    if isInt(dictConfig["SecondsBeetweenChecks"]):
-      iSecSleep = int(dictConfig["SecondsBeetweenChecks"])
-    else:
-      LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
 
   if "MinQuiet" in dictConfig:
     if isInt(dictConfig["MinQuiet"]):
