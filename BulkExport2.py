@@ -450,11 +450,15 @@ def main():
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iChunkSize))
 
   if "UpdatedDays" in dictConfig:
+    LogEntry("Found Update Days")
     if isInt(dictConfig["UpdatedDays"]):
       iLastDays = int(dictConfig["UpdatedDays"])
+      LogEntry("it's a valid int, calculating")
       tupDate = datetime.today() - timedelta(days=iLastDays)
       iUpdateSince = int(datetime.timestamp(tupDate))
       dictFilter["updated_at"] = iUpdateSince
+    else:
+      LogEntry("Not a valid int '{}'".format(dictConfig["UpdatedDays"]))
 
   if "ExportType" in dictConfig:
     strExportType = dictConfig["ExportType"]
