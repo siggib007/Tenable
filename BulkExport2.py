@@ -1,5 +1,5 @@
 '''
-Tenable PluginID Export API Script
+Tenable Export API Script
 Author Siggi Bjarnason Copyright 2020
 
 Following packages need to be installed as administrator
@@ -8,6 +8,7 @@ pip install jason
 
 '''
 # Import libraries
+from datetime import datetime, timedelta
 import sys
 import requests
 import os
@@ -111,8 +112,11 @@ def SendNotification (strMsg):
 
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
-  objLogOut.close()
-  objFileOut.close()
+  try:
+    objLogOut.close()
+    objFileOut.close()
+  except:
+    pass
   sys.exit(9)
 
 def LogEntry(strMsg,bAbort=False):
@@ -212,8 +216,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    # APIResponse = APIResponse.encode("ascii","ignore")
-    # APIResponse = APIResponse.decode("ascii","ignore")
+    APIResponse = APIResponse.encode("ascii","ignore")
+
     try:
       objFileOut.write ("{}".format(APIResponse))
     except Exception as err:
@@ -233,28 +237,17 @@ def BulkExport(strFunction):
 
   global objFileOut
   global iRowCount
-  global strRAWout
 
   iRowCount = 0
   iTotalSleep = 0
   tStart=time.time()
   dictResults = {}
 
-  strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
-  try:
-    objFileOut = open(strRAWout,"w")
-  except PermissionError:
-    LogEntry("unable to open output file {} for writing, "
-      "permission denied.".format(strRAWout),True)
-  LogEntry ("Output file {} created".format(strRAWout))
-
   strAPIFunction = strFunction + "/export/"
 
   strStatus = "PROCESSING"
   iChunkCount = 0
   lstChunks = []
-
-  # Set the payload to the maximum number to be pulled at once
 
   strURL = strBaseURL + strAPIFunction
 
@@ -283,10 +276,16 @@ def BulkExport(strFunction):
             LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
         else:
           LogEntry ("Somethings wrong, 'chunks_available not in response")
-        LogEntry ("Status: {} \nChunks Available: {}\n{}\nFetching them".format(strStatus,iChunkCount,lstChunks))
-        FetchChunks(strFunction,lstChunks,strExportUUID)
-        # if strFunction == "vulns":
-        #   exit()
+        LogEntry ("Status: {} | Chunks Available: {}".format(strStatus,iChunkCount))
+        if iChunkCount > 0:
+          LogEntry ("Available Chunks: {}".format(lstChunks))
+          lstNotProcessed = []
+          for iChunkID in lstChunks:
+            if iChunkID not in dictChunkStatus:
+              lstNotProcessed.append(iChunkID)
+          if len(lstNotProcessed) > 0:
+            LogEntry("Now fetching chunks {}".format(lstNotProcessed))
+            FetchChunks(strFunction,lstNotProcessed,strExportUUID)
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
   #dtNow = time.asctime()
   tStop = time.time()
@@ -327,6 +326,8 @@ def main():
   global tStart
   global strHeader
   global dictChunkStatus
+  global iChunkSize
+  global objFileOut
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -435,6 +436,7 @@ def main():
       bNotifyEnabled = True
     else:
       bNotifyEnabled = False
+  
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
 
@@ -450,18 +452,50 @@ def main():
     else:
       LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
 
-
   if "MinQuiet" in dictConfig:
     if isInt(dictConfig["MinQuiet"]):
       iMinQuiet = int(dictConfig["MinQuiet"])
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  dictPayload["num_assets"] = iChunkSize
+  if "BatchSize" in dictConfig:
+    if isInt(dictConfig["BatchSize"]):
+      iChunkSize = int(dictConfig["BatchSize"])
+    else:
+      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iChunkSize))
+
+  if "UpdatedDays" in dictConfig:
+    if isInt(dictConfig["UpdatedDays"]):
+      iLastDays = int(dictConfig["UpdatedDays"])
+      tupDate = datetime.today() - timedelta(days=iLastDays)
+      iUpdateSince = int(datetime.timestamp(tupDate))
+      dictFilter["updated_at"] = iUpdateSince
+
+  if "ExportType" in dictConfig:
+    strExportType = dictConfig["ExportType"]
+  else:
+    LogEntry("Export Type not defined in configuration file, aborting",True)
+
+  if "OutFile" in dictConfig:
+    strRAWout = dictConfig["OutFile"]
+  else:
+    strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strExportType + ".json"
+  # strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
+  try:
+    objFileOut = open(strRAWout,"w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+      "permission denied.".format(strRAWout),True)
+  LogEntry ("Output file {} created".format(strRAWout))
+
+  if strExportType == "vulns":
+    dictPayload["num_assets"] = iChunkSize
+  if strExportType == "assets":
+    dictPayload["chunk_size"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
   dictResults={}
-  dictResults = BulkExport ("vulns")
+  dictResults = BulkExport (strExportType)
 
   LogEntry ("Completed processing, here are the stats:")
   LogEntry ("Downloaded {} vulns".format(dictResults["RowCount"]))
