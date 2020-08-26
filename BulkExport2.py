@@ -86,7 +86,7 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  if True:
+  if not bNotifyEnabled:
     return
   global strNotifyURL
   global strNotifyToken
@@ -142,16 +142,6 @@ def isInt (CheckValue):
       return False
   else:
     return False
-
-def ConvertFloat (fValue):
-  if isinstance(fValue,(float,int,str)):
-    try:
-      fTemp = float(fValue)
-    except ValueError:
-      fTemp = "NULL"
-  else:
-    fTemp = "NULL"
-  return fTemp
 
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
@@ -295,7 +285,6 @@ def BulkExport(strFunction):
             LogEntry("Now fetching chunks {}".format(lstNotProcessed))
             FetchChunks(strFunction,lstNotProcessed,strExportUUID)
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
-  #dtNow = time.asctime()
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
@@ -435,6 +424,13 @@ def main():
     else:
       bNotifyEnabled = False
   
+  if "TimeStampDefOutFile" in dictConfig:
+    if dictConfig["TimeStampDefOutFile"].lower() == "yes" \
+      or dictConfig["TimeStampDefOutFile"].lower() == "true":
+      bTimeFile = True
+    else:
+      bTimeFile = False
+
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
       iTimeOut = int(dictConfig["TimeOut"])
@@ -468,8 +464,11 @@ def main():
   if "OutFile" in dictConfig:
     strRAWout = dictConfig["OutFile"]
   else:
-    strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strExportType + ".json"
-  # strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".json"
+    if bTimeFile:
+      strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strExportType + ISO + ".json"
+    else:
+      strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strExportType + ".json"
+  
   try:
     objFileOut = open(strRAWout,"w")
   except PermissionError:
@@ -494,7 +493,7 @@ def main():
 
   LogEntry ("Completed at {}".format(dtNow))
   LogEntry ("Results save to {}".format(strRAWout))
-  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
 
