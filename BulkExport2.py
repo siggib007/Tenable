@@ -243,33 +243,33 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for dictChunkItem in APIResponse:
         if "id" in dictChunkItem:
-          strAssetID = "'" + CSVClean(dictChunkItem["id"],50) + "'"
+          strAssetID = CSVClean(dictChunkItem["id"],50) 
         else:
-          strAssetID = "''"
+          strAssetID = ""
         if "ipv4s" in dictChunkItem:
-          strIPv4 = "'" + CSVClean (" | ".join(dictChunkItem["ipv4s"]),990) + "'"
+          strIPv4 = CSVClean (" | ".join(dictChunkItem["ipv4s"]),990)
         else:
-          strIPv4 = "''"
+          strIPv4 = ""
         if "ipv6s" in dictChunkItem:
-          strIPv6 = "'" + CSVClean (" | ".join(dictChunkItem["ipv6s"]),990) + "'"
+          strIPv6 = CSVClean (" | ".join(dictChunkItem["ipv6s"]),990)
         else:
-          strIPv6 = "''"
+          strIPv6 = ""
         if "fqdns" in dictChunkItem:
-          strFQDNs = "'" + CSVClean (" | ".join(dictChunkItem["fqdns"]),990) + "'"
+          strFQDNs = CSVClean (" | ".join(dictChunkItem["fqdns"]),990)
         else:
-          strFQDNs = "''"
+          strFQDNs = ""
         if "netbios_names" in dictChunkItem:
-          strNetBIOS = "'" + CSVClean (" | ".join(dictChunkItem["netbios_names"]),990) + "'"
+          strNetBIOS = CSVClean (" | ".join(dictChunkItem["netbios_names"]),990)
         else:
-          strNetBIOS = "''"
+          strNetBIOS = ""
         if "operating_systems" in dictChunkItem:
-          strOS = "'" + CSVClean (" | ".join(dictChunkItem["operating_systems"]),990) + "'"
+          strOS = CSVClean (" | ".join(dictChunkItem["operating_systems"]),990)
         else:
-          strOS = "''"
+          strOS = ""
         if "hostnames" in dictChunkItem:
-          strHostName = "'" + CSVClean (" | ".join(dictChunkItem["hostnames"]),990) + "'"
+          strHostName = CSVClean (" | ".join(dictChunkItem["hostnames"]),990)
         else:
-          strHostName = "''"
+          strHostName = ""
         objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
 
 def BulkExport(strFunction):
