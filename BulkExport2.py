@@ -143,6 +143,15 @@ def isInt (CheckValue):
   else:
     return False
 
+def CSVClean(strText,iLimit):
+  if strText is None:
+    return ""
+  else:
+    strTemp = strText.encode("ascii", "ignore")
+    strTemp = strTemp.decode("ascii", "ignore")
+    strTemp = strTemp.replace(",", " ")
+    return strTemp[:iLimit]
+
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   global tLastCall
@@ -218,7 +227,6 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
     strResponse = strResponse[1:-1]
     if iRowCount > 0:
       strResponse = "," + strResponse
-
     try:
       objFileOut.write ("{}".format(strResponse))
     except Exception as err:
@@ -233,6 +241,36 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       iRowCount += iChunkLen
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
+      for dictChunkItem in APIResponse:
+        if "id" in dictChunkItem:
+          strAssetID = "'" + CSVClean(dictChunkItem["id"],50) + "'"
+        else:
+          strAssetID = "''"
+        if "ipv4s" in dictChunkItem:
+          strIPv4 = "'" + CSVClean (" | ".join(dictChunkItem["ipv4s"]),990) + "'"
+        else:
+          strIPv4 = "''"
+        if "ipv6s" in dictChunkItem:
+          strIPv6 = "'" + CSVClean (" | ".join(dictChunkItem["ipv6s"]),990) + "'"
+        else:
+          strIPv6 = "''"
+        if "fqdns" in dictChunkItem:
+          strFQDNs = "'" + CSVClean (" | ".join(dictChunkItem["fqdns"]),990) + "'"
+        else:
+          strFQDNs = "''"
+        if "netbios_names" in dictChunkItem:
+          strNetBIOS = "'" + CSVClean (" | ".join(dictChunkItem["netbios_names"]),990) + "'"
+        else:
+          strNetBIOS = "''"
+        if "operating_systems" in dictChunkItem:
+          strOS = "'" + CSVClean (" | ".join(dictChunkItem["operating_systems"]),990) + "'"
+        else:
+          strOS = "''"
+        if "hostnames" in dictChunkItem:
+          strHostName = "'" + CSVClean (" | ".join(dictChunkItem["hostnames"]),990) + "'"
+        else:
+          strHostName = "''"
+        objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
 
 def BulkExport(strFunction):
   global iRowCount
@@ -322,6 +360,7 @@ def main():
   global dictChunkStatus
   global iChunkSize
   global objFileOut
+  global objCSVOut
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -479,7 +518,12 @@ def main():
   except PermissionError:
     LogEntry("unable to open output file {} for writing, "
       "permission denied.".format(strRAWout),True)
-  LogEntry ("Output file {} created".format(strRAWout))
+  LogEntry ("Raw Output file {} created".format(strRAWout))
+
+  iExtLoc = strRAWout.rfind(".")
+  strCSVName = strRAWout[:iExtLoc] + ".csv"
+  objCSVOut = open(strCSVName,"w",1)
+  objCSVOut.write("AssetID,HostName,DNS,NetBIOS,IPv4,IPv6,OS\n")
 
   if strExportType == "vulns":
     dictPayload["num_assets"] = iChunkSize
