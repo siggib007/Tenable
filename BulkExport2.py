@@ -184,8 +184,8 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
         WebRequest = requests.post(strURL, headers=strHeader, verify=False)
       LogEntry ("post executed")
   except Exception as err:
-    LogEntry ("Issue with API call. {}".format(err))
-    CleanExit ("due to issue with API, please check the logs")
+    return "Issue with API call. {}".format(err)
+    # CleanExit ("due to issue with API, please check the logs")
 
   if isinstance(WebRequest,requests.models.Response)==False:
     LogEntry ("response is unknown type")
@@ -221,22 +221,30 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    strResponse = "{}".format(strRawResults)
-    strResponse = strResponse.encode("ascii","ignore")
-    strResponse = strResponse.decode("ascii","ignore")
-    strResponse = strResponse[1:-1]
-    if iRowCount > 0:
-      strResponse = "," + strResponse
-    try:
-      objFileOut.write ("{}".format(strResponse))
-    except Exception as err:
-      LogEntry ("Issue with writing chunk to file. {}".format(err))
     if isinstance(APIResponse,str):
-      LogEntry(APIResponse,True)
-      break
-    elif isinstance(APIResponse,dict):
+      LogEntry("FetchChunks: " + APIResponse)
+      strCond = "err"
+      while strCond == "err":
+        APIResponse = MakeAPICall(strURL,strHeader,"get")
+        if isinstance(APIResponse,str):
+          LogEntry("FetchChunks Retry: " + APIResponse)
+          strCond = "err"
+        else:
+          LogEntry("FetchChunk Retry Good")
+          strCond = "good"
+    if isinstance(APIResponse,dict):
       LogEntry ("response is a dict")
     elif isinstance(APIResponse,list):
+      strResponse = "{}".format(strRawResults)
+      strResponse = strResponse.encode("ascii","ignore")
+      strResponse = strResponse.decode("ascii","ignore")
+      strResponse = strResponse[1:-1]
+      if iRowCount > 0:
+        strResponse = "," + strResponse
+      try:
+        objFileOut.write ("{}".format(strResponse))
+      except Exception as err:
+        LogEntry ("Issue with writing chunk to file. {}".format(err))
       iChunkLen = len(APIResponse)
       iRowCount += iChunkLen
       dictChunkStatus[iChunkID] = iChunkLen
@@ -290,7 +298,7 @@ def BulkExport(strFunction):
 
   APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
   if isinstance(APIResponse,str):
-    LogEntry(APIResponse,True)
+    LogEntry("1stExport" + APIResponse,True)
   elif isinstance(APIResponse,dict):
     strExportUUID = APIResponse['export_uuid']
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
@@ -298,8 +306,7 @@ def BulkExport(strFunction):
     while strStatus == "PROCESSING":
       APIResponse = MakeAPICall(strURL,strHeader,"get")
       if isinstance(APIResponse,str):
-        LogEntry(APIResponse,True)
-        strStatus = "Error"
+        LogEntry("While Status: " + APIResponse,True)
       elif isinstance(APIResponse,dict):
         if "status" in APIResponse:
           strStatus = APIResponse["status"]
