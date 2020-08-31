@@ -234,8 +234,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           strCond = "err"
           iErrCount += 1
           if iErrCount > iMaxRetry:
-            LogEntry("Too many fetchchunks errors, finishing up")
-            break
+            LogEntry("Too many fetchchunks errors, exiting",True)
         else:
           LogEntry("FetchChunk Retry Good")
           strCond = "good"
