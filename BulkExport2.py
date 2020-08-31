@@ -230,7 +230,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       while strCond == "err":
         APIResponse = MakeAPICall(strURL,strHeader,"get")
         if isinstance(APIResponse,str):
-          LogEntry("FetchChunks Retry: " + APIResponse)
+          LogEntry("FetchChunks Retry #{}: {}".format(iErrCount, APIResponse))
           strCond = "err"
           iErrCount += 1
           if iErrCount > iMaxRetry:
@@ -314,7 +314,7 @@ def BulkExport(strFunction):
     while strStatus == "PROCESSING":
       APIResponse = MakeAPICall(strURL,strHeader,"get")
       if isinstance(APIResponse,str):
-        LogEntry("While Status: " + APIResponse)
+        LogEntry("Status check error, attempt #{}: {}".format(iErrCount, APIResponse))
         iErrCount += 1
         if iErrCount > iMaxRetry:
           strStatus = "Error"
