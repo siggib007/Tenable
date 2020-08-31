@@ -172,7 +172,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: {} with payload of {}".format(strMethod,strURL,dictPayload))
+  LogEntry ("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
@@ -306,7 +306,7 @@ def BulkExport(strFunction):
     while strStatus == "PROCESSING":
       APIResponse = MakeAPICall(strURL,strHeader,"get")
       if isinstance(APIResponse,str):
-        LogEntry("While Status: " + APIResponse,True)
+        LogEntry("While Status: " + APIResponse)
       elif isinstance(APIResponse,dict):
         if "status" in APIResponse:
           strStatus = APIResponse["status"]
