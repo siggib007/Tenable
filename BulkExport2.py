@@ -234,6 +234,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           strCond = "err"
           iErrCount += 1
           if iErrCount > iMaxRetry:
+            LogEntry("Too many fetchchunks errors, finishing up")
             break
         else:
           LogEntry("FetchChunk Retry Good")
@@ -318,6 +319,7 @@ def BulkExport(strFunction):
         iErrCount += 1
         if iErrCount > iMaxRetry:
           strStatus = "Error"
+          LogEntry("Too many status check errors, finishing up")
       elif isinstance(APIResponse,dict):
         iErrCount = 0
         if "status" in APIResponse:
