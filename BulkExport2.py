@@ -27,8 +27,10 @@ requests.urllib3.disable_warnings()
 iChunkSize = 5000
 iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
+iMaxRetry = 5 # Maximum number of times to retry an error
 iTotalSleep = 0
 tLastCall = 0
+iErrCount = 0
 
 def processConf(strConf_File):
 
@@ -211,6 +213,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
   global iRowCount
   global dictChunkStatus
+  global iErrCount
 
   strAPIFunction = strFunction + "/export/"
 
@@ -229,9 +232,13 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
         if isinstance(APIResponse,str):
           LogEntry("FetchChunks Retry: " + APIResponse)
           strCond = "err"
+          iErrCount += 1
+          if iErrCount > iMaxRetry:
+            break
         else:
           LogEntry("FetchChunk Retry Good")
           strCond = "good"
+          iErrCount = 0
     if isinstance(APIResponse,dict):
       LogEntry ("response is a dict")
     elif isinstance(APIResponse,list):
@@ -282,6 +289,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
 def BulkExport(strFunction):
   global iRowCount
+  global iErrCount
 
   iRowCount = 0
   iTotalSleep = 0
@@ -307,7 +315,11 @@ def BulkExport(strFunction):
       APIResponse = MakeAPICall(strURL,strHeader,"get")
       if isinstance(APIResponse,str):
         LogEntry("While Status: " + APIResponse)
+        iErrCount += 1
+        if iErrCount > iMaxRetry:
+          strStatus = "Error"
       elif isinstance(APIResponse,dict):
+        iErrCount = 0
         if "status" in APIResponse:
           strStatus = APIResponse["status"]
         else:
@@ -368,6 +380,7 @@ def main():
   global iChunkSize
   global objFileOut
   global objCSVOut
+  global iMaxRetry
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -494,6 +507,12 @@ def main():
       iChunkSize = int(dictConfig["BatchSize"])
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iChunkSize))
+
+  if "MaxError" in dictConfig:
+    if isInt(dictConfig["MaxError"]):
+      iMaxRetry = int(dictConfig["MaxError"])
+    else:
+      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMaxRetry))
 
   if "UpdatedDays" in dictConfig:
     LogEntry("Found Update Days")
