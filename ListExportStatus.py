@@ -144,6 +144,12 @@ def ConvertFloat (fValue):
     fTemp = "NULL"
   return fTemp
 
+def formatUnixDate(iDate):
+  if iDate > 9999999999:
+    iDate = iDate / 1000
+  structTime = time.localtime(iDate)
+  return time.strftime(strFormat,structTime)
+
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   global tLastCall
@@ -342,7 +348,7 @@ def main():
           else:
             strChunksReady = "n/a"
           strChunkSize = dictValue["num_assets_per_chunk"]
-          dtCreated = dictValue["created"]
+          dtCreated = formatUnixDate (int(dictValue["created"]))
           strFilters = dictValue["filters"]
           LogEntry("{}|{}|{}|{}|{}|{}|{}".format(strExportID,
             strStatus,strTotalChunks,strChunksReady,strChunkSize,dtCreated,strFilters))
