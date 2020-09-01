@@ -310,6 +310,21 @@ def BulkExport(strFunction):
   elif isinstance(APIResponse,dict):
     strExportUUID = APIResponse['export_uuid']
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
+    LogEntry ("Checking for total number of chunks")
+    strURL = strBaseURL + strAPIFunction + "/status"
+    APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
+    if "exports" in APIResponse:
+      if isinstance(APIResponse["exports"],list):
+          iListSize = len(APIResponse["exports"])
+          LogEntry("there are {} exports in the list".format(iListSize))
+          for dictValue in APIResponse["exports"]:
+            if dictValue["uuid"] == strExportUUID:
+              if "total_chunks" in dictValue:
+                strTotalChunks = dictValue["total_chunks"]
+              else:
+                strTotalChunks = "n/a"
+              break
+    LogEntry("Total Chunks: {}".format(strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
     while strStatus == "PROCESSING":
       APIResponse = MakeAPICall(strURL,strHeader,"get")
@@ -333,7 +348,7 @@ def BulkExport(strFunction):
             LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
         else:
           LogEntry ("Somethings wrong, 'chunks_available not in response")
-        LogEntry ("Status: {} | Chunks Available: {}".format(strStatus,iChunkCount))
+        LogEntry ("Status: {} | Chunks Available: {} out of {}".format(strStatus,iChunkCount,strTotalChunks))
         if iChunkCount > 0:
           LogEntry ("Available Chunks: {}".format(lstChunks))
           lstNotProcessed = []
