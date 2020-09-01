@@ -311,9 +311,9 @@ def BulkExport(strFunction):
   elif isinstance(APIResponse,dict):
     strExportUUID = APIResponse['export_uuid']
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
-    LogEntry ("Checking for total number of chunks")
     strURL = strBaseURL + strAPIFunction + "status"
     while strTotalChunks == "n/a":
+      LogEntry ("Checking for total number of chunks")
       APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
       if "exports" in APIResponse:
         if isinstance(APIResponse["exports"],list):
@@ -321,8 +321,15 @@ def BulkExport(strFunction):
             LogEntry("there are {} exports in the list".format(iListSize))
             for dictValue in APIResponse["exports"]:
               if dictValue["uuid"] == strExportUUID:
+                if "status" in dictValue:
+                  strStatus = dictValue["status"]
+                  LogEntry("Status is {}".format(strStatus))
+                else:
+                  LogEntry("No status")
                 if "total_chunks" in dictValue:
                   strTotalChunks = dictValue["total_chunks"]
+                else:
+                  LogEntry ("Total Chunks not available, trying again")
                 break
     LogEntry("Total Chunks: {}".format(strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
@@ -358,6 +365,7 @@ def BulkExport(strFunction):
           if len(lstNotProcessed) > 0:
             LogEntry("Now fetching chunks {}".format(lstNotProcessed))
             FetchChunks(strFunction,lstNotProcessed,strExportUUID)
+  LogEntry("Final status {}".format(strStatus))
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
