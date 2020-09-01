@@ -304,6 +304,7 @@ def BulkExport(strFunction):
 
   strURL = strBaseURL + strAPIFunction
 
+  strTotalChunks = "n/a"
   APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
   if isinstance(APIResponse,str):
     LogEntry("1stExport" + APIResponse,True)
@@ -311,7 +312,7 @@ def BulkExport(strFunction):
     strExportUUID = APIResponse['export_uuid']
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
     LogEntry ("Checking for total number of chunks")
-    strURL = strBaseURL + strAPIFunction + "/status"
+    strURL = strBaseURL + strAPIFunction + "status"
     APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
     if "exports" in APIResponse:
       if isinstance(APIResponse["exports"],list):
@@ -321,8 +322,6 @@ def BulkExport(strFunction):
             if dictValue["uuid"] == strExportUUID:
               if "total_chunks" in dictValue:
                 strTotalChunks = dictValue["total_chunks"]
-              else:
-                strTotalChunks = "n/a"
               break
     LogEntry("Total Chunks: {}".format(strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
