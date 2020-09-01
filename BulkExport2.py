@@ -313,16 +313,17 @@ def BulkExport(strFunction):
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
     LogEntry ("Checking for total number of chunks")
     strURL = strBaseURL + strAPIFunction + "status"
-    APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
-    if "exports" in APIResponse:
-      if isinstance(APIResponse["exports"],list):
-          iListSize = len(APIResponse["exports"])
-          LogEntry("there are {} exports in the list".format(iListSize))
-          for dictValue in APIResponse["exports"]:
-            if dictValue["uuid"] == strExportUUID:
-              if "total_chunks" in dictValue:
-                strTotalChunks = dictValue["total_chunks"]
-              break
+    while strTotalChunks == "n/a":
+      APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
+      if "exports" in APIResponse:
+        if isinstance(APIResponse["exports"],list):
+            iListSize = len(APIResponse["exports"])
+            LogEntry("there are {} exports in the list".format(iListSize))
+            for dictValue in APIResponse["exports"]:
+              if dictValue["uuid"] == strExportUUID:
+                if "total_chunks" in dictValue:
+                  strTotalChunks = dictValue["total_chunks"]
+                break
     LogEntry("Total Chunks: {}".format(strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
     while strStatus == "PROCESSING":
