@@ -177,13 +177,13 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   LogEntry ("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
-      WebRequest = requests.get(strURL, headers=strHeader, verify=False)
+      WebRequest = requests.get(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       LogEntry ("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
-        WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False)
+        WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
-        WebRequest = requests.post(strURL, headers=strHeader, verify=False)
+        WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       LogEntry ("post executed")
   except Exception as err:
     return "Issue with API call. {}".format(err)
@@ -200,6 +200,9 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
 
+  if WebRequest.text[:15].upper() == "<!DOCTYPE HTML>" or WebRequest.text[:6].upper() == "<HTML>":
+    return "ERROR: Response was HTML but I need json"
+  
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
   else:
@@ -207,7 +210,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     try:
       return WebRequest.json()
     except Exception as err:
-      LogEntry ("Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99]))
+      return "Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99])
 
 def FetchChunks(strFunction,lstChunks, strExportUUID):
 
@@ -405,6 +408,7 @@ def main():
   global objFileOut
   global objCSVOut
   global iMaxRetry
+  global dictProxies
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -553,6 +557,12 @@ def main():
     strExportType = dictConfig["ExportType"]
   else:
     LogEntry("Export Type not defined in configuration file, aborting",True)
+
+  if "Proxies" in dictConfig:
+    strProxies = dictConfig["Proxies"]
+    dictProxies = {"http":strProxies,"https":strProxies}
+  else:
+    dictProxies = {}
 
   if "OutFile" in dictConfig:
     strRAWout = dictConfig["OutFile"]
