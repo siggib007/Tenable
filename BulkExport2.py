@@ -310,7 +310,7 @@ def BulkExport(strFunction):
   strTotalChunks = "n/a"
   APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
   if isinstance(APIResponse,str):
-    LogEntry("1stExport" + APIResponse,True)
+    LogEntry("1stExport: " + APIResponse,True)
   elif isinstance(APIResponse,dict):
     strExportUUID = APIResponse['export_uuid']
     LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
