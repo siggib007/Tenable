@@ -173,19 +173,19 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   # LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
-      WebRequest = requests.get(strURL, headers=strHeader, verify=False)
+      WebRequest = requests.get(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       # LogEntry ("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
-        WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False)
+        WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
-        WebRequest = requests.post(strURL, headers=strHeader, verify=False)
+        WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       # LogEntry ("post executed")
     if strMethod.lower() == "put":
       if dictPayload != "":
-        WebRequest = requests.put(strURL, json= dictPayload, headers=strHeader, verify=False)
+        WebRequest = requests.put(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
-        WebRequest = requests.put(strURL, headers=strHeader, verify=False)
+        WebRequest = requests.put(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       # LogEntry ("post executed")
   except Exception as err:
     LogEntry ("Issue with API call. {}".format(err))
@@ -206,6 +206,9 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
+  
+  if WebRequest.text[:15].upper() == "<!DOCTYPE HTML>" or WebRequest.text[:6].upper() == "<HTML>":
+    return "ERROR: Response was HTML but I need json"
 
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
@@ -213,7 +216,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     try:
       return WebRequest.json()
     except Exception as err:
-      LogEntry ("Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99]))
+      return ("Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99]))
 
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
@@ -237,6 +240,7 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global dictProxies
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -309,6 +313,12 @@ def main():
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
 
+  if "Proxies" in dictConfig:
+    strProxies = dictConfig["Proxies"]
+    dictProxies = {"http":strProxies,"https":strProxies}
+  else:
+    dictProxies = {}
+
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
       iTimeOut = int(dictConfig["TimeOut"])
@@ -332,31 +342,35 @@ def main():
   strURL = strBaseURL + strExportType + "/export/status"
   LogEntry("Pulling a list of existing exports")
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "exports" in APIResponse:
-    if isinstance(APIResponse["exports"],list):
-        iListSize = len(APIResponse["exports"])
-        LogEntry("there are {} exports in the list".format(iListSize))
-        for dictValue in APIResponse["exports"]:
-          strExportID = dictValue["uuid"]
-          strStatus = dictValue["status"]
-          if "total_chunks" in dictValue:
-            strTotalChunks = dictValue["total_chunks"]
-          else:
-            strTotalChunks = "n/a"
-          if "finished_chunks" in dictValue:
-            strChunksReady = dictValue["finished_chunks"]
-          else:
-            strChunksReady = "n/a"
-          strChunkSize = dictValue["num_assets_per_chunk"]
-          dtCreated = formatUnixDate (int(dictValue["created"]))
-          strFilters = dictValue["filters"]
-          LogEntry("{}|{}|{}|{}|{}|{}|{}".format(strExportID,
-            strStatus,strTotalChunks,strChunksReady,strChunkSize,dtCreated,strFilters))
+  if isinstance(APIResponse,str):
+    LogEntry(APIResponse)
+  elif isinstance(APIResponse,dict):
+    if "exports" in APIResponse:
+      if isinstance(APIResponse["exports"],list):
+          iListSize = len(APIResponse["exports"])
+          LogEntry("there are {} exports in the list".format(iListSize))
+          for dictValue in APIResponse["exports"]:
+            strExportID = dictValue["uuid"]
+            strStatus = dictValue["status"]
+            if "total_chunks" in dictValue:
+              strTotalChunks = dictValue["total_chunks"]
+            else:
+              strTotalChunks = "n/a"
+            if "finished_chunks" in dictValue:
+              strChunksReady = dictValue["finished_chunks"]
+            else:
+              strChunksReady = "n/a"
+            strChunkSize = dictValue["num_assets_per_chunk"]
+            dtCreated = formatUnixDate (int(dictValue["created"]))
+            strFilters = dictValue["filters"]
+            LogEntry("{}|{}|{}|{}|{}|{}|{}".format(strExportID,
+              strStatus,strTotalChunks,strChunksReady,strChunkSize,dtCreated,strFilters))
+      else:
+          LogEntry("exports is not a list, no idea what to do with this: {}".format(APIResponse),True)
     else:
-        LogEntry("exports is not a list, no idea what to do with this: {}".format(APIResponse),True)
+      LogEntry ("Unepxected results: {}".format(APIResponse),True)
   else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
-
+    LogEntry("API Response is {} which is unexpected.".format(type(APIResponse)))
   LogEntry("Done!")
 
 if __name__ == '__main__':
