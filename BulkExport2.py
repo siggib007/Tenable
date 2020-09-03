@@ -290,7 +290,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           strHostName = ""
         objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
 
-def BulkExport(strFunction):
+def BulkExport(strFunction,strExportUUID):
   global iRowCount
   global iErrCount
 
@@ -308,66 +308,70 @@ def BulkExport(strFunction):
   strURL = strBaseURL + strAPIFunction
 
   strTotalChunks = "n/a"
-  APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
-  if isinstance(APIResponse,str):
-    LogEntry("1stExport: " + APIResponse,True)
-  elif isinstance(APIResponse,dict):
-    strExportUUID = APIResponse['export_uuid']
-    LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
-    strURL = strBaseURL + strAPIFunction + "status"
-    while strTotalChunks == "n/a":
-      LogEntry ("Checking for total number of chunks")
-      APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
+  if strExportUUID == "":
+    APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
+    if isinstance(APIResponse,str):
+      LogEntry("1stExport: " + APIResponse,True)
+    elif isinstance(APIResponse,dict):
+      strExportUUID = APIResponse['export_uuid']
+      LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
+  strURL = strBaseURL + strAPIFunction + "status"
+  while strTotalChunks == "n/a":
+    LogEntry ("Checking for total number of chunks")
+    APIResponse = MakeAPICall(strURL,strHeader,"get")
+    if isinstance(APIResponse,str):
+      LogEntry("Numbers of Chunks error, attempt #{}: {}".format(iErrCount, APIResponse))
+      iErrCount += 1
+      if iErrCount > iMaxRetry:
+        strTotalChunks = "Error"
+        LogEntry("Too many status check errors, moving on")
+    elif isinstance(APIResponse,dict):
+      iErrCount = 0
       if "exports" in APIResponse:
         if isinstance(APIResponse["exports"],list):
             iListSize = len(APIResponse["exports"])
             LogEntry("there are {} exports in the list".format(iListSize))
             for dictValue in APIResponse["exports"]:
               if dictValue["uuid"] == strExportUUID:
-                if "status" in dictValue:
-                  strStatus = dictValue["status"]
-                  LogEntry("Status is {}".format(strStatus))
-                else:
-                  LogEntry("No status")
                 if "total_chunks" in dictValue:
                   strTotalChunks = dictValue["total_chunks"]
                 else:
                   LogEntry ("Total Chunks not available, trying again")
                 break
-    LogEntry("Total Chunks: {}".format(strTotalChunks))
-    strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
-    while strStatus == "PROCESSING":
-      APIResponse = MakeAPICall(strURL,strHeader,"get")
-      if isinstance(APIResponse,str):
-        LogEntry("Status check error, attempt #{}: {}".format(iErrCount, APIResponse))
-        iErrCount += 1
-        if iErrCount > iMaxRetry:
-          strStatus = "Error"
-          LogEntry("Too many status check errors, finishing up")
-      elif isinstance(APIResponse,dict):
-        iErrCount = 0
-        if "status" in APIResponse:
-          strStatus = APIResponse["status"]
+  LogEntry("Total Chunks: {}".format(strTotalChunks))
+  strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
+  while strStatus == "PROCESSING":
+    APIResponse = MakeAPICall(strURL,strHeader,"get")
+    if isinstance(APIResponse,str):
+      LogEntry("Status check error, attempt #{}: {}".format(iErrCount, APIResponse))
+      iErrCount += 1
+      if iErrCount > iMaxRetry:
+        strStatus = "Error"
+        LogEntry("Too many status check errors, finishing up")
+    elif isinstance(APIResponse,dict):
+      iErrCount = 0
+      if "status" in APIResponse:
+        strStatus = APIResponse["status"]
+      else:
+        strStatus = "unknown"
+      if "chunks_available" in APIResponse:
+        if isinstance(APIResponse["chunks_available"],list):
+          iChunkCount = len(APIResponse["chunks_available"])
+          lstChunks = APIResponse["chunks_available"]
         else:
-          strStatus = "unknown"
-        if "chunks_available" in APIResponse:
-          if isinstance(APIResponse["chunks_available"],list):
-            iChunkCount = len(APIResponse["chunks_available"])
-            lstChunks = APIResponse["chunks_available"]
-          else:
-            LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
-        else:
-          LogEntry ("Somethings wrong, 'chunks_available not in response")
-        LogEntry ("Status: {} | Chunks Available: {} out of {}".format(strStatus,iChunkCount,strTotalChunks))
-        if iChunkCount > 0:
-          LogEntry ("Available Chunks: {}".format(lstChunks))
-          lstNotProcessed = []
-          for iChunkID in lstChunks:
-            if iChunkID not in dictChunkStatus:
-              lstNotProcessed.append(iChunkID)
-          if len(lstNotProcessed) > 0:
-            LogEntry("Now fetching chunks {}".format(lstNotProcessed))
-            FetchChunks(strFunction,lstNotProcessed,strExportUUID)
+          LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
+      else:
+        LogEntry ("Somethings wrong, 'chunks_available not in response")
+      LogEntry ("Status: {} | Chunks Available: {} out of {}".format(strStatus,iChunkCount,strTotalChunks))
+      if iChunkCount > 0:
+        LogEntry ("Available Chunks: {}".format(lstChunks))
+        lstNotProcessed = []
+        for iChunkID in lstChunks:
+          if iChunkID not in dictChunkStatus:
+            lstNotProcessed.append(iChunkID)
+        if len(lstNotProcessed) > 0:
+          LogEntry("Now fetching chunks {}".format(lstNotProcessed))
+          FetchChunks(strFunction,lstNotProcessed,strExportUUID)
   LogEntry("Final status {}".format(strStatus))
   LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
@@ -591,8 +595,14 @@ def main():
     dictPayload["chunk_size"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
+  if len(sys.argv) > 1:
+    strExportUUID = sys.argv[1]
+    LogEntry ("UUID {} provided as an arg".format(strExportUUID))
+  else:
+    strExportUUID = ""
+
   dictResults={}
-  dictResults = BulkExport (strExportType)
+  dictResults = BulkExport (strExportType,strExportUUID)
   objFileOut.write("]")
   LogEntry ("Completed processing, here are the stats:")
   LogEntry ("Downloaded {} {}".format(dictResults["RowCount"],strExportType))
