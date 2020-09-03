@@ -225,6 +225,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       LogEntry  ("Already processed chunk # {}, skipping".format(iChunkID))
       continue
 
+    LogEntry("Fetching chunk #{} out of {}".format(iChunkID,strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
     if isinstance(APIResponse,str):
@@ -293,6 +294,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 def BulkExport(strFunction,strExportUUID):
   global iRowCount
   global iErrCount
+  global strTotalChunks
 
   iRowCount = 0
   iTotalSleep = 0
