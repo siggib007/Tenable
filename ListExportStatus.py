@@ -201,9 +201,9 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     iErrCode = "ResponseErr"
     iErrText = "response is unknown type"
 
-  # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
+  LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
+    # LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
   
