@@ -19,8 +19,13 @@ import platform
 import pymysql
 # End imports
 
+#Define few things
+iTotalSleep = 0
+tLastCall = 0
+iTotalAdded = 0
+
 #avoid insecure warning
-requests.packages.urllib3.disable_warnings()
+requests.urllib3.disable_warnings()
 
 def SendNotification (strMsg):
   if not bNotifyEnabled:
@@ -97,8 +102,6 @@ def processConf(strConf_File):
       strConfParts = strLine.split("=")
       strVarName = strConfParts[0].strip()
       strValue = strConfParts[1].strip()
-      strLineParts = strFullLine.split("=")
-      strFullValue = strLineParts[1].strip()
       if "password" in strVarName.lower() or "pwd" in strVarName.lower():
         LogEntry("Varname is {}, assigning full value".format(strVarName))
         iLoc = strFullLine.find("=")
@@ -199,7 +202,6 @@ def MakeAPICall (strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
-  dictResponse = {}
 
   LogEntry ("Doing a {} to URL: \n {}".format(strMethod,strURL))
   # print ("UID:{} PWD:{}".format(strUser, strPWD))
@@ -681,7 +683,7 @@ def main():
   iTotalAgents = iLimit
   dictParams["limit"] = iLimit
   iTotalProcessed = 0
-  iTotalAdded = 0
+  
 
   dbConn = SQLConn (strServer,strDBUser,strDBPWD,strInitialDB)
 
@@ -739,6 +741,7 @@ def main():
             else:
               LogEntry("Result is not a dict it is type:{}".format(type(dictResults)),True)
             iTotalProcessed += 1
+            LogEntry(GroupAddResponse)
             if iOffset == 0:
               iTotalAgents = "n/a"
             LogEntry ("Processed: {}, added:{}, total: {}, offset:{}, limit:{}".format(iTotalProcessed,iTotalAdded,
