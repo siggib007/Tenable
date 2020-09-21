@@ -434,7 +434,7 @@ def main():
             dictFilterObj["field"] = "ipv4"
             dictFilterObj["operator"] = "eq"
             dictFilterObj["value"] = dictMembers["ipv4"]
-            dictFilters["asset"]["or"].append(dictFilterObj)
+            dictFilters["asset"]["or"].append(dictFilterObj.copy())
           dictFilterObj = {}
           if dictMembers["dns"] != "":
             dictFilterObj["field"] = "fqdn"
