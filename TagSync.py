@@ -275,7 +275,7 @@ def CheckMembers(lstValues):
     else:
       lstHost.append(strValue.strip())
   dictReturn["ipv4"] = ",".join(lstIPv4)
-  dictReturn["dns"] = ",".join(lstHost)
+  dictReturn["dns"] = lstHost
   return dictReturn
 
 def main():
@@ -429,18 +429,19 @@ def main():
           dictFilterObj = {}
           dictFilters = {}
           dictFilters["asset"] = {}
-          dictFilters["asset"]["and"] = []
+          dictFilters["asset"]["or"] = []
           if dictMembers["ipv4"] != "":
             dictFilterObj["field"] = "ipv4"
             dictFilterObj["operator"] = "eq"
             dictFilterObj["value"] = dictMembers["ipv4"]
-            dictFilters["asset"]["and"].append(dictFilterObj)
+            dictFilters["asset"]["or"].append(dictFilterObj)
           dictFilterObj = {}
           if dictMembers["dns"] != "":
             dictFilterObj["field"] = "fqdn"
             dictFilterObj["operator"] = "eq"
-            dictFilterObj["value"] = dictMembers["dns"]
-            dictFilters["asset"]["and"].append(dictFilterObj)      
+            for strMember in dictMembers["dns"]:
+              dictFilterObj["value"] = strMember 
+              dictFilters["asset"]["or"].append(dictFilterObj)      
           dictPayload["filters"] = dictFilters
           if strName in dictAllValues:
             LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
