@@ -438,10 +438,10 @@ def main():
           dictFilterObj = {}
           if dictMembers["dns"] != "":
             dictFilterObj["field"] = "fqdn"
-            dictFilterObj["operator"] = "eq"
+            dictFilterObj["operator"] = "match"
             for strMember in dictMembers["dns"]:
               dictFilterObj["value"] = strMember 
-              dictFilters["asset"]["or"].append(dictFilterObj)      
+              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
           dictPayload["filters"] = dictFilters
           if strName in dictAllValues:
             LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
