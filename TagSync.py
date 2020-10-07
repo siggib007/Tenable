@@ -31,6 +31,12 @@ tLastCall = 0
 iLineCount = 0
 iTotalScan = 0
 
+def formatUnixDate(iDate):
+  if iDate > 9999999999:
+    iDate = iDate / 1000
+  structTime = time.localtime(iDate)
+  return time.strftime(strFormat,structTime)
+
 def processConf(strConf_File):
 
   LogEntry ("Looking for configuration file: {}".format(strConf_File))
@@ -132,6 +138,22 @@ def isInt (CheckValue):
     if CheckValue.isnumeric():
       return True
     else:
+      return False
+  else:
+    return False
+
+def isFloat (CheckValue):
+  # function to safely check if a value can be interpreded as an int
+  if isinstance(CheckValue,float):
+    return True
+  elif isinstance(CheckValue,str):
+    try:
+      fTemp = float(CheckValue)
+      if isinstance(fTemp,float):
+        return True
+      else:
+        return False
+    except ValueError:
       return False
   else:
     return False
@@ -318,6 +340,7 @@ def main():
   
   iLoc = sys.argv[0].rfind(".")
   strConf_File = sys.argv[0][:iLoc] + ".ini"
+  strCacheFile = sys.argv[0][:iLoc] + ".cache"
 
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
@@ -381,6 +404,27 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
+  if os.path.isfile(strCacheFile):
+    objCache = open(strCacheFile,"r")
+    strLines = objCache.readline()
+    objCache.close()
+    if isFloat(strLines):
+      iLastRan = float(strLines)
+      LogEntry("Found last ran as {} ".format(iLastRan))
+    else:
+      LogEntry("Last ran time stored as {} which is not a valid int.".format(strLines))
+      iLastRan = time.time()
+      iLastRan -= 604800 # subtracting 7 days from today as default
+  else:
+    LogEntry("No last ran time found")
+    iLastRan = time.time()
+    iLastRan -= 604800 # subtracting 7 days from today as default
+  LogEntry("Last ran time set to {} which is {}".format(iLastRan,formatUnixDate(iLastRan)))
+  objCache = open(strCacheFile,"w",1)
+  objCache.write(str(time.time()))
+  objCache.close()
+  LogEntry("Saved current time to cache as last ran time")
+
   dictPayload = {}
   dictAllValues = {}
   strMethod = "get"
@@ -412,6 +456,14 @@ def main():
           strType = dictTG["type"]
           strMembers = dictTG["members"]
           strName = dictTG["name"]
+          iLastModified = dictTG["last_modification_date"]
+          dtLastModified = formatUnixDate(iLastModified)
+          LogEntry ("Group {}:{} last updated {} which is {} ".format(strType,strName,iLastModified,dtLastModified))
+          if iLastModified > iLastRan:
+            LogEntry ("Group has been modified since last run")
+          else:
+            LogEntry ("No change since last run, skipping")
+            continue
           if strName == "Default":
             #Don't try to convert the default group
             continue
@@ -459,14 +511,14 @@ def main():
 
           strURL = strBaseURL + strAPIFunction
           LogEntry("Submitting request to {}".format(strAction))
-          APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-          if isinstance(APIResponse,dict):
-            if "uuid" in APIResponse:
-              LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
-            else:
-              LogEntry("No UUID\n{}".format(APIResponse),True)
-          else:
-            LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
+          # APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+          # if isinstance(APIResponse,dict):
+          #   if "uuid" in APIResponse:
+          #     LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
+          #   else:
+          #     LogEntry("No UUID\n{}".format(APIResponse),True)
+          # else:
+          #   LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
           iRowCount += 1
 
   # for strGroup in dictCount:
