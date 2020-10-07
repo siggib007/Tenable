@@ -511,18 +511,17 @@ def main():
 
           strURL = strBaseURL + strAPIFunction
           LogEntry("Submitting request to {}".format(strAction))
-          # APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-          # if isinstance(APIResponse,dict):
-          #   if "uuid" in APIResponse:
-          #     LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
-          #   else:
-          #     LogEntry("No UUID\n{}".format(APIResponse),True)
-          # else:
-          #   LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
+          APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+          if isinstance(APIResponse,dict):
+            if "uuid" in APIResponse:
+              LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
+            else:
+              LogEntry("No UUID\n{}".format(APIResponse),True)
+          else:
+            LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
           iRowCount += 1
 
-  # for strGroup in dictCount:
-  #   LogEntry ("{},{}".format(strGroup,dictCount[strGroup]))
+
   LogEntry("Done!")
 
 if __name__ == '__main__':
