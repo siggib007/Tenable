@@ -489,9 +489,13 @@ def main():
             dictFilters["asset"]["or"].append(dictFilterObj.copy())
           dictFilterObj = {}
           if dictMembers["dns"] != "":
-            dictFilterObj["field"] = "fqdn"
-            dictFilterObj["operator"] = "match"
             for strMember in dictMembers["dns"]:
+              dictFilterObj["field"] = "fqdn"
+              dictFilterObj["operator"] = "match"
+              dictFilterObj["value"] = strMember 
+              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
+              dictFilterObj["field"] = "netbios_name"
+              dictFilterObj["operator"] = "match"
               dictFilterObj["value"] = strMember 
               dictFilters["asset"]["or"].append(dictFilterObj.copy())      
           dictPayload["filters"] = dictFilters
