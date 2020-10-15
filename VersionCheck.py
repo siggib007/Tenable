@@ -30,6 +30,34 @@ tLastCall = 0
 iLineCount = 0
 iTotalScan = 0
 
+def VersionCmp(strOld, strNew):
+  LogEntry("Comparing {} and {} ".format(strOld, strNew))
+  lstOldParts = strOld.split(".")
+  lstNewParts = strNew.split(".")
+  if len(lstOldParts) != 3 or len(lstNewParts) != 3:
+    LogEntry("Invalid versions")
+    return False
+  elif not isInt(lstOldParts[0]) and not isInt(lstOldParts[1]) and not isInt(lstOldParts[2]) \
+     and not isInt(lstNewParts[0]) and not isInt(lstNewParts[1]) and  not isInt(lstNewParts[2]):
+      LogEntry("Invalid versions")
+      return False
+
+  if lstNewParts[0] > lstOldParts[0]:
+    return True
+  elif lstNewParts[0] == lstOldParts[0]:
+    if lstNewParts[1] > lstOldParts[1]:
+      return True
+    elif lstNewParts[1] == lstOldParts[1]:
+      if lstNewParts[2] > lstOldParts[2]:
+        return True
+      else:
+        return False
+    else:
+      return False
+  else:
+    return False
+    
+    
 def processConf(strConf_File):
 
   LogEntry ("Looking for configuration file: {}".format(strConf_File))
@@ -323,6 +351,12 @@ def main():
             strNewVer = APIResponse["releases"]["latest"][strKey][0]["version"]
             strReleaseDT = APIResponse["releases"]["latest"][strKey][0]["release_date"]
             LogEntry ("Latest Version is {} with release date of {} ".format(strNewVer,strReleaseDT))
+            bNew = VersionCmp(strLastVer,strNewVer)
+            if bNew:
+              LogEntry ("You have a new version")
+              # Create a CR 
+            else:
+              LogEntry ("Current version is either the same or older")
             objCache = open(strCacheFile,"w",1)
             objCache.write(str(strNewVer))
             objCache.close()
