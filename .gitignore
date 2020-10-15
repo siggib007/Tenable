@@ -9,4 +9,4 @@ Logs/
 *.csv
 json/
 *.xlsx
-TagSync.cache
+*.cache
