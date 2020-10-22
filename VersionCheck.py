@@ -56,8 +56,7 @@ def VersionCmp(strOld, strNew):
       return False
   else:
     return False
-    
-    
+       
 def processConf(strConf_File):
 
   LogEntry ("Looking for configuration file: {}".format(strConf_File))
