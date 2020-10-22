@@ -364,24 +364,24 @@ def main():
     else:
       LogEntry("No last_licensed_scan_date entry")
     if "ipv4" in APIResponse:
-      strIPv4=APIResponse["ipv4"].join("|")
+      strIPv4="|".join(APIResponse["ipv4"])
     else:
       LogEntry("No ipv4 entry")
     if "fqdn" in APIResponse:
-      strFQDN=APIResponse["fqdn"].join("|")
+      strFQDN="|".join(APIResponse["fqdn"])
     else:
       LogEntry("No fqdn entry")
 
     if "netbios_name" in APIResponse:
-      strNetBIOSName=APIResponse["netbios_name"].join("|")
+      strNetBIOSName="|".join(APIResponse["netbios_name"])
     else:
       LogEntry("No netbios_name entry")
     if "operating_system" in APIResponse:
-      strOS=APIResponse["operating_system"].join("|")
+      strOS="|".join(APIResponse["operating_system"])
     else:
       LogEntry("No operating_system entry")
     if "system_type" in APIResponse:
-      strSysType=APIResponse["system_type"].join("|")
+      strSysType="|".join(APIResponse["system_type"])
     else:
       LogEntry("No system_type entry")
     LogEntry("{},{},{},{},{},{},{},{},{}".format(strFQDN,strNetBIOSName,
