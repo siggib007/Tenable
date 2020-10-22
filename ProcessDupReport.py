@@ -28,7 +28,6 @@ iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
-iLineCount = 0
 iTotalScan = 0
 
 def formatUnixDate(iDate):
@@ -374,7 +373,7 @@ def main():
   else:
     LogEntry("No OutFile provided, unable to proceed",True)
 
-  strOutFile = strInFile.replace("\\","/")
+  strOutFile = strOutFile.replace("\\","/")
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -396,6 +395,7 @@ def main():
   objJSON=open(strInFile,"r")
   lstJSON=json.load(objJSON)
   iJSONLen=len(lstJSON)
+  iLineCount = 0
 
   strCSVHead = "UUID,FQDN,NetBIOS Name,IPv4,HasAgent,MAC Addr Count,SysType,OS,Last Seen,Last Auth Scan,Last Licensed Scan"
   objOutFile = open(strOutFile,"w",1)
@@ -405,6 +405,7 @@ def main():
   strAPIFunction = "assets/"
 
   for dictJSON in lstJSON:
+    iLineCount += 1
     strAssetID = dictJSON['asset_ids'][0]
     strURL = strBaseURL + strAPIFunction + strAssetID
     LogEntry("Querying for details on first AssetID in group {} out of {}:{}".format(
@@ -418,7 +419,6 @@ def main():
       iLineCount,iJSONLen,strAssetID))
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
     strResponse = ProcessAPI(APIResponse)
-    iLineCount += 1
     objOutFile.write(strResponse)
   
   LogEntry("Done!")
