@@ -322,6 +322,7 @@ def main():
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   iRowCount = 1
+  iMaxMembers = 10000
   tStart=time.time()
 
   dictCount = {}  
@@ -404,6 +405,12 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
+  if "MaxMembers" in dictConfig:
+    if isInt(dictConfig["MaxMembers"]):
+      iMaxMembers = int(dictConfig["MaxMembers"])
+    else:
+      LogEntry("Invalid MaxMembers, setting to defaults of {}".format(iMaxMembers))
+
   if os.path.isfile(strCacheFile):
     objCache = open(strCacheFile,"r")
     strLines = objCache.readline()
@@ -465,14 +472,14 @@ def main():
             LogEntry ("No change since last run, skipping")
             continue
           if strName == "Default":
-            #Don't try to convert the default group
+            LogEntry ("Skipping the default group")
             continue
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
-          if iMemberCount < 10000:
+          if iMemberCount < iMaxMembers:
             dictMembers = CheckMembers(lstMembers)
           else:
-            #skip this group, it has too many entries
+            LogEntry("Skipping this group, it has {} entries, which exceeds the max of {}".format(iMemberCount,iMaxMembers))
             continue
           strID = dictTG["id"]
           dictCount[strName] = iMemberCount
