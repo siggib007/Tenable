@@ -120,6 +120,8 @@ def SendNotification (strMsg):
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
   objLogOut.close()
+  objJSON.close()
+  objOutFile.close()  
   sys.exit(9)
 
 def LogEntry(strMsg,bAbort=False):
@@ -222,6 +224,56 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def ProcessAPI(APIResponse):
+  if "id" in APIResponse:
+    strUUID=APIResponse["id"]
+  else:
+    LogEntry("No id entry")
+  if "has_agent" in APIResponse:
+    bHasAgent=APIResponse["has_agent"]
+  else:
+    LogEntry("No has_agent entry")
+  if "last_seen" in APIResponse:
+    dtLastSeen=APIResponse["last_seen"]
+  else:
+    LogEntry("No last_seen entry")
+  if "last_authenticated_scan_date" in APIResponse:
+    dtLastAuth=APIResponse["last_authenticated_scan_date"]
+  else:
+    LogEntry("No last_authenticated_scan_date entry")
+
+  if "last_licensed_scan_date" in APIResponse:
+    dtLastLicense=APIResponse["last_licensed_scan_date"]
+  else:
+    LogEntry("No last_licensed_scan_date entry")
+  if "ipv4" in APIResponse:
+    strIPv4="|".join(APIResponse["ipv4"])
+  else:
+    LogEntry("No ipv4 entry")
+  if "fqdn" in APIResponse:
+    strFQDN="|".join(APIResponse["fqdn"])
+  else:
+    LogEntry("No fqdn entry")
+
+  if "netbios_name" in APIResponse:
+    strNetBIOSName="|".join(APIResponse["netbios_name"])
+  else:
+    LogEntry("No netbios_name entry")
+  if "operating_system" in APIResponse:
+    strOS="|".join(APIResponse["operating_system"])
+  else:
+    LogEntry("No operating_system entry")
+  if "system_type" in APIResponse:
+    strSysType="|".join(APIResponse["system_type"])
+  else:
+    LogEntry("No system_type entry")
+  if "mac_address" in APIResponse:
+    strMACAddrCount="Found {} MAC Addresses".format(len(APIResponse["mac_address"]))
+  else:
+    LogEntry("No mac_address entry")
+  return ("{},{},{},{},{},{},{},{},{},{},{}".format(strUUID,strFQDN,strNetBIOSName,
+    strIPv4,bHasAgent,strMACAddrCount,strSysType,strOS,dtLastSeen,dtLastAuth,dtLastLicense))  
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -229,6 +281,8 @@ def main():
   global iTimeOut
   global iTotalSleep
   global objLogOut
+  global objJSON
+  global objOutFile
   global strBaseDir
   global strNotifyChannel
   global strNotifyToken
@@ -315,7 +369,12 @@ def main():
   else:
     LogEntry("No Infile provided, unable to proceed",True)
 
-  strInFile = strInFile.replace("\\","/")
+  if "OutFile" in dictConfig:
+    strOutFile = dictConfig["OutFile"]
+  else:
+    LogEntry("No OutFile provided, unable to proceed",True)
+
+  strOutFile = strInFile.replace("\\","/")
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -336,7 +395,11 @@ def main():
       " unable to proceed without a valid infile".format(strInFile),True)
   objJSON=open(strInFile,"r")
   lstJSON=json.load(objJSON)
+  iJSONLen=len(lstJSON)
 
+  strCSVHead = "UUID,FQDN,NetBIOS Name,IPv4,HasAgent,MAC Addr Count,SysType,OS,Last Seen,Last Auth Scan,Last Licensed Scan"
+  objOutFile = open(strOutFile,"w",1)
+  objOutFile.write(strCSVHead)
   dictPayload = {}
   strMethod = "get"
   strAPIFunction = "assets/"
@@ -344,50 +407,24 @@ def main():
   for dictJSON in lstJSON:
     strAssetID = dictJSON['asset_ids'][0]
     strURL = strBaseURL + strAPIFunction + strAssetID
-    LogEntry("Querying for details on AssetID:{}".format(strAssetID))
+    LogEntry("Querying for details on first AssetID in group {} out of {}:{}".format(
+      iLineCount,iJSONLen,strAssetID))
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-    if "has_agent" in APIResponse:
-      bHasAgent=APIResponse["has_agent"]
-    else:
-      LogEntry("No has_agent entry")
-    if "last_seen" in APIResponse:
-      dtLastSeen=APIResponse["last_seen"]
-    else:
-      LogEntry("No last_seen entry")
-    if "last_authenticated_scan_date" in APIResponse:
-      dtLastAuth=APIResponse["last_authenticated_scan_date"]
-    else:
-      LogEntry("No last_authenticated_scan_date entry")
-
-    if "last_licensed_scan_date" in APIResponse:
-      dtLastLicense=APIResponse["last_licensed_scan_date"]
-    else:
-      LogEntry("No last_licensed_scan_date entry")
-    if "ipv4" in APIResponse:
-      strIPv4="|".join(APIResponse["ipv4"])
-    else:
-      LogEntry("No ipv4 entry")
-    if "fqdn" in APIResponse:
-      strFQDN="|".join(APIResponse["fqdn"])
-    else:
-      LogEntry("No fqdn entry")
-
-    if "netbios_name" in APIResponse:
-      strNetBIOSName="|".join(APIResponse["netbios_name"])
-    else:
-      LogEntry("No netbios_name entry")
-    if "operating_system" in APIResponse:
-      strOS="|".join(APIResponse["operating_system"])
-    else:
-      LogEntry("No operating_system entry")
-    if "system_type" in APIResponse:
-      strSysType="|".join(APIResponse["system_type"])
-    else:
-      LogEntry("No system_type entry")
-    LogEntry("{},{},{},{},{},{},{},{},{}".format(strFQDN,strNetBIOSName,
-      strIPv4,bHasAgent,strSysType,strOS,dtLastSeen,dtLastAuth,dtLastLicense))
-
+    strResponse = ProcessAPI(APIResponse)
+    objOutFile.write(strResponse)
+    strAssetID = dictJSON['asset_ids'][1]
+    strURL = strBaseURL + strAPIFunction + strAssetID
+    LogEntry("Querying for details on second AssetID in group {} out of {}:{}".format(
+      iLineCount,iJSONLen,strAssetID))
+    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+    strResponse = ProcessAPI(APIResponse)
+    iLineCount += 1
+    objOutFile.write(strResponse)
+  
   LogEntry("Done!")
+  objJSON.close()
+  objOutFile.close()
+  objLogOut.close()
 
 if __name__ == '__main__':
   main()
