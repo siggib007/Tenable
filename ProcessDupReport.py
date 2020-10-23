@@ -38,6 +38,15 @@ def formatUnixDate(iDate):
   structTime = time.localtime(iDate)
   return time.strftime(strFormat,structTime)
 
+def TDate2Date(strDate):
+  if strDate == "":
+    return ""
+  if strDate is None:
+    return "None"
+  strTemp=strDate.replace(",",";")
+  strTemp = strTemp.replace("T"," ")
+  return strTemp.replace("Z","")
+  
 def processConf(strConf_File):
 
   LogEntry ("Looking for configuration file: {}".format(strConf_File))
@@ -233,62 +242,68 @@ def ProcessAPI(strURL):
     time.sleep(120)
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
     if not isinstance(APIResponse, dict):
-      LogEntry("Got unexpected result second time around, giving up. Response was {}".format(APIResponse),True)
+      LogEntry ("Got unexpected result second time around, giving up. Response was {}".format(APIResponse),True)
   if "id" in APIResponse:
-    strUUID=APIResponse["id"]
+    strUUID = APIResponse["id"]
+    strUUID = strUUID.replace(",",";")
   else:
-    LogEntry("No id entry")
-    strUUID=""
+    LogEntry ("No id entry")
+    strUUID = ""
   if "has_agent" in APIResponse:
-    bHasAgent=APIResponse["has_agent"]
+    bHasAgent = APIResponse["has_agent"]
   else:
-    LogEntry("No has_agent entry")
-    bHasAgent=""
+    LogEntry ("No has_agent entry")
+    bHasAgent = ""
   if "last_seen" in APIResponse:
-    dtLastSeen=APIResponse["last_seen"]
+    dtLastSeen = TDate2Date (APIResponse["last_seen"])
   else:
-    LogEntry("No last_seen entry")
-    dtLastSeen=""
+    LogEntry ("No last_seen entry")
+    dtLastSeen = ""
   if "last_authenticated_scan_date" in APIResponse:
-    dtLastAuth=APIResponse["last_authenticated_scan_date"]
+    dtLastAuth = TDate2Date (APIResponse["last_authenticated_scan_date"])
   else:
-    LogEntry("No last_authenticated_scan_date entry")
-    dtLastAuth=""
+    LogEntry ("No last_authenticated_scan_date entry")
+    dtLastAuth = ""
   if "last_licensed_scan_date" in APIResponse:
-    dtLastLicense=APIResponse["last_licensed_scan_date"]
+    dtLastLicense = TDate2Date (APIResponse["last_licensed_scan_date"])
   else:
-    LogEntry("No last_licensed_scan_date entry")
-    dtLastLicense=""
+    LogEntry ("No last_licensed_scan_date entry")
+    dtLastLicense = ""
   if "ipv4" in APIResponse:
-    strIPv4="|".join(APIResponse["ipv4"])
+    strIPv4 = "|".join(APIResponse["ipv4"])
+    strIPv4 = strIPv4.replace(",",";")
   else:
-    LogEntry("No ipv4 entry")
-    strIPv4=""
+    LogEntry ("No ipv4 entry")
+    strIPv4 = ""
   if "fqdn" in APIResponse:
-    strFQDN="|".join(APIResponse["fqdn"])
+    strFQDN = "|".join(APIResponse["fqdn"])
+    strFQDN = strFQDN.replace(",",";")
   else:
-    LogEntry("No fqdn entry")
-    strFQDN=""
+    LogEntry ("No fqdn entry")
+    strFQDN = ""
   if "netbios_name" in APIResponse:
-    strNetBIOSName="|".join(APIResponse["netbios_name"])
+    strNetBIOSName = "|".join(APIResponse["netbios_name"])
+    strNetBIOSName = strNetBIOSName.replace(",",";")
   else:
-    LogEntry("No netbios_name entry")
-    strNetBIOSName=""
+    LogEntry ("No netbios_name entry")
+    strNetBIOSName = ""
   if "operating_system" in APIResponse:
-    strOS="|".join(APIResponse["operating_system"])
+    strOS = "|".join(APIResponse["operating_system"])
+    strOS = strOS.replace(",",";")
   else:
-    LogEntry("No operating_system entry")
-    strOS=""
+    LogEntry ("No operating_system entry")
+    strOS = ""
   if "system_type" in APIResponse:
-    strSysType="|".join(APIResponse["system_type"])
+    strSysType = "|".join(APIResponse["system_type"])
+    strSysType = strSysType.replace(",",";")
   else:
-    LogEntry("No system_type entry")
-    strSysType=""
+    LogEntry ("No system_type entry")
+    strSysType = ""
   if "mac_address" in APIResponse:
-    strMACAddrCount="Found {} MAC Addresses".format(len(APIResponse["mac_address"]))
+    strMACAddrCount = "Found {} MAC Addresses".format(len(APIResponse["mac_address"]))
   else:
-    LogEntry("No mac_address entry")
-    strMACAddrCount=""
+    LogEntry ("No mac_address entry")
+    strMACAddrCount = ""
   return ("{},{},{},{},{},{},{},{},{},{},{}".format(strUUID,strFQDN,strNetBIOSName,
     strIPv4,bHasAgent,strMACAddrCount,strSysType,strOS,dtLastSeen,dtLastAuth,dtLastLicense))  
 
