@@ -417,7 +417,8 @@ def main():
   iJSONLen=len(lstJSON)
   iLineCount = 0
 
-  strCSVHead = "UUID,FQDN,NetBIOS Name,IPv4,HasAgent,MAC Addr Count,SysType,OS,Last Seen,Last Auth Scan,Last Licensed Scan"
+  strCSVHead = ("UUID,FQDN,NetBIOS Name,IPv4,HasAgent,MAC Addr Count,"
+              "SysType,OS,Last Seen,Last Auth Scan,Last Licensed Scan\n")
   objOutFile = open(strOutFile,"w",1)
   objOutFile.write(strCSVHead)
   strAPIFunction = "assets/"
@@ -429,13 +430,13 @@ def main():
     LogEntry("Querying for details on first AssetID in group {} out of {}:{}".format(
       iLineCount,iJSONLen,strAssetID))
     strResponse = ProcessAPI(strURL)
-    objOutFile.write(strResponse)
+    objOutFile.write(strResponse + "\n")
     strAssetID = dictJSON['asset_ids'][1]
     strURL = strBaseURL + strAPIFunction + strAssetID
     LogEntry("Querying for details on second AssetID in group {} out of {}:{}".format(
       iLineCount,iJSONLen,strAssetID))
     strResponse = ProcessAPI(strURL)
-    objOutFile.write(strResponse)
+    objOutFile.write(strResponse + "\n")
   
   LogEntry("Done!")
   objJSON.close()
