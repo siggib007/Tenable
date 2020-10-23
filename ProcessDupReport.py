@@ -29,6 +29,8 @@ iMinQuiet = 2 # Minimum time in seconds between API calls
 iTotalSleep = 0
 tLastCall = 0
 iTotalScan = 0
+dictPayload = {}
+strMethod = "get"
 
 def formatUnixDate(iDate):
   if iDate > 9999999999:
@@ -223,53 +225,70 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
-def ProcessAPI(APIResponse):
+def ProcessAPI(strURL):
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if not isinstance(APIResponse, dict):
+    LogEntry ("Expecting a dictionary, got: {}".format(APIResponse))
+    LogEntry ("Waiting two minutes then trying the call again")
+    time.sleep(120)
+    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+    if not isinstance(APIResponse, dict):
+      LogEntry("Got unexpected result second time around, giving up. Response was {}".format(APIResponse),True)
   if "id" in APIResponse:
     strUUID=APIResponse["id"]
   else:
     LogEntry("No id entry")
+    strUUID=""
   if "has_agent" in APIResponse:
     bHasAgent=APIResponse["has_agent"]
   else:
     LogEntry("No has_agent entry")
+    bHasAgent=""
   if "last_seen" in APIResponse:
     dtLastSeen=APIResponse["last_seen"]
   else:
     LogEntry("No last_seen entry")
+    dtLastSeen=""
   if "last_authenticated_scan_date" in APIResponse:
     dtLastAuth=APIResponse["last_authenticated_scan_date"]
   else:
     LogEntry("No last_authenticated_scan_date entry")
-
+    dtLastAuth=""
   if "last_licensed_scan_date" in APIResponse:
     dtLastLicense=APIResponse["last_licensed_scan_date"]
   else:
     LogEntry("No last_licensed_scan_date entry")
+    dtLastLicense=""
   if "ipv4" in APIResponse:
     strIPv4="|".join(APIResponse["ipv4"])
   else:
     LogEntry("No ipv4 entry")
+    strIPv4=""
   if "fqdn" in APIResponse:
     strFQDN="|".join(APIResponse["fqdn"])
   else:
     LogEntry("No fqdn entry")
-
+    strFQDN=""
   if "netbios_name" in APIResponse:
     strNetBIOSName="|".join(APIResponse["netbios_name"])
   else:
     LogEntry("No netbios_name entry")
+    strNetBIOSName=""
   if "operating_system" in APIResponse:
     strOS="|".join(APIResponse["operating_system"])
   else:
     LogEntry("No operating_system entry")
+    strOS=""
   if "system_type" in APIResponse:
     strSysType="|".join(APIResponse["system_type"])
   else:
     LogEntry("No system_type entry")
+    strSysType=""
   if "mac_address" in APIResponse:
     strMACAddrCount="Found {} MAC Addresses".format(len(APIResponse["mac_address"]))
   else:
     LogEntry("No mac_address entry")
+    strMACAddrCount=""
   return ("{},{},{},{},{},{},{},{},{},{},{}".format(strUUID,strFQDN,strNetBIOSName,
     strIPv4,bHasAgent,strMACAddrCount,strSysType,strOS,dtLastSeen,dtLastAuth,dtLastLicense))  
 
@@ -291,6 +310,7 @@ def main():
   global tLastCall
   global tStart
   global strFormat
+  global strHeader
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -400,8 +420,6 @@ def main():
   strCSVHead = "UUID,FQDN,NetBIOS Name,IPv4,HasAgent,MAC Addr Count,SysType,OS,Last Seen,Last Auth Scan,Last Licensed Scan"
   objOutFile = open(strOutFile,"w",1)
   objOutFile.write(strCSVHead)
-  dictPayload = {}
-  strMethod = "get"
   strAPIFunction = "assets/"
 
   for dictJSON in lstJSON:
@@ -410,15 +428,13 @@ def main():
     strURL = strBaseURL + strAPIFunction + strAssetID
     LogEntry("Querying for details on first AssetID in group {} out of {}:{}".format(
       iLineCount,iJSONLen,strAssetID))
-    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-    strResponse = ProcessAPI(APIResponse)
+    strResponse = ProcessAPI(strURL)
     objOutFile.write(strResponse)
     strAssetID = dictJSON['asset_ids'][1]
     strURL = strBaseURL + strAPIFunction + strAssetID
     LogEntry("Querying for details on second AssetID in group {} out of {}:{}".format(
       iLineCount,iJSONLen,strAssetID))
-    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-    strResponse = ProcessAPI(APIResponse)
+    strResponse = ProcessAPI(strURL)
     objOutFile.write(strResponse)
   
   LogEntry("Done!")
