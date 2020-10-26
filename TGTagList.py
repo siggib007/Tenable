@@ -359,7 +359,7 @@ def main():
 
   strOutFile = strOutPath + "TargetGroups.csv"
   objFileOut = open(strOutFile,"w")
-  objFileOut.write("Name,Type,ID,Member Count,ACLs\n")
+  objFileOut.write("Name,Type,ID,Member Count,Permission,ACLs\n")
   iRowCount = 1
 
   strMethod = "get"
@@ -399,10 +399,11 @@ def main():
           strType = dictTG["type"]
           strMembers = dictTG["members"]
           strName = dictTG["name"]
+          iUserPermission = dictTG["user_permissions"]
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
           strID = dictTG["id"]
-          objFileOut.write("{},{},{},{},{}\n".format(strName,strType,strID,iMemberCount,strACLs))
+          objFileOut.write("{},{},{},{},{}\n".format(strName,strType,strID,iMemberCount,iUserPermission,strACLs))
           iRowCount += 1
   objFileOut.close()
 
