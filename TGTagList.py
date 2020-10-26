@@ -403,7 +403,7 @@ def main():
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
           strID = dictTG["id"]
-          objFileOut.write("{},{},{},{},{}\n".format(strName,strType,strID,iMemberCount,iUserPermission,strACLs))
+          objFileOut.write("{},{},{},{},{},{}\n".format(strName,strType,strID,iMemberCount,iUserPermission,strACLs))
           iRowCount += 1
   objFileOut.close()
 
