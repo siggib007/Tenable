@@ -359,7 +359,7 @@ def main():
 
   strOutFile = strOutPath + "TargetGroups.csv"
   objFileOut = open(strOutFile,"w")
-  objFileOut.write("Name,Type,ID,Member Count\n")
+  objFileOut.write("Name,Type,ID,Member Count,ACLs\n")
   iRowCount = 1
 
   strMethod = "get"
@@ -372,19 +372,40 @@ def main():
     if isinstance(APIResponse["target_groups"],list):
         # iTGSize = len(APIResponse["target_groups"])
         for dictTG in APIResponse["target_groups"]:
+          lstACL = []
+          if "acls" in dictTG:
+            for dictACL in dictTG["acls"]:
+              if "permissions" in dictACL:
+                iPermissions = dictACL["permissions"]
+              else:
+                iPermissions = "none"
+              if "owner" in dictACL:
+                iOwner = dictACL["owner"]
+              else:
+                iOwner = "none"
+              if "name" in dictACL:
+                strACLName = dictACL["name"]
+              else:
+                strACLName = "none"
+              if "type" in dictACL:
+                strACLType = dictACL["type"]
+              else:
+                strACLType = "none"
+              lstACL.append("ACL {} named:{} permission {} owned by {}".format(
+                strACLType,strACLName,iPermissions,iOwner))
+            strACLs = "|".join(lstACL)
+          else:
+            strACLs = "no ACL"
           strType = dictTG["type"]
           strMembers = dictTG["members"]
           strName = dictTG["name"]
           lstMembers = strMembers.split(",")
           iMemberCount = len(lstMembers)
           strID = dictTG["id"]
-          objFileOut.write("{},{},{},{}\n".format(strName,strType,strID,iMemberCount))
-          # LogEntry ("Processing group {} with ID {}. Contains {} entries. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
+          objFileOut.write("{},{},{},{},{}\n".format(strName,strType,strID,iMemberCount,strACLs))
           iRowCount += 1
   objFileOut.close()
 
-  # for strGroup in dictCount:
-  #   LogEntry ("{},{}".format(strGroup,dictCount[strGroup]))
   LogEntry("Done!")
 
 if __name__ == '__main__':
