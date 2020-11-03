@@ -188,7 +188,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   iErrText = ""
   WebRequest = None
 
-  # LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
+  LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
@@ -238,67 +238,6 @@ def CleanStr(strOld):
   strTemp = strTemp.replace(',','')
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
-
-def ValidateIP(strToCheck):
-	Quads = strToCheck.split(".")
-	if len(Quads) != 4:
-		return False
-	# end if
-
-	for Q in Quads:
-		try:
-			iQuad = int(Q)
-		except ValueError:
-			return False
-		# end try
-
-		if iQuad > 255 or iQuad < 0:
-			return False
-		# end if
-
-	return True
-
-def CheckMembers(lstValues):
-  lstIPv4 = []
-  lstHost = []
-  dictReturn = {}
-  for strValue in lstValues:
-    if strValue.find(":") > 0:
-      #Value is an IPv6, unable to process right now
-      pass
-    elif strValue.find("-") > 0:
-      lstValueParts = strValue.split("-")
-      if len(lstValueParts) == 2:
-        if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
-          lstIPv4.append(strValue.strip())
-        else:
-          lstHost.append(strValue.strip())
-      else:
-        lstHost.append(strValue)
-    elif strValue.find("/") > 0 and len(strValue) > 6:
-      lstValueParts = strValue.split("/")
-      bTemp = True
-      if len(lstValueParts) != 2:
-        bTemp = False
-      try:
-        iValue = int(lstValueParts[1])
-      except ValueError:
-        bTemp = False
-      if iValue < 1 or iValue > 32:
-        bTemp = False
-      if not ValidateIP(lstValueParts[0]):
-        bTemp = False
-      if bTemp:
-        lstIPv4.append(strValue.strip())
-      else:
-        lstHost.append(strValue.strip())
-    elif ValidateIP(strValue): 
-      lstIPv4.append(strValue.strip())
-    else:
-      lstHost.append(strValue.strip())
-  dictReturn["ipv4"] = ",".join(lstIPv4)
-  dictReturn["dns"] = lstHost
-  return dictReturn
 
 def main():
   global ISO
@@ -465,7 +404,7 @@ def main():
         dtLastModified = formatUnixDate(iLastModified)
         LogEntry ("Group {} last updated {} which is {} ".format(strName,iLastModified,dtLastModified))
         if iLastModified > iLastRan:
-          LogEntry ("Group has been modified since last run")
+          LogEntry ("Group has been modified since last run, adding to list")
         else:
           LogEntry ("No change since last run, skipping")
           continue
@@ -484,18 +423,23 @@ def main():
       strFilter = strGroupName
       iFilterLen = len(strFilter)
     if strGroupName[:iFilterLen] == strFilter:
-      strAPIFunction += dictAllGroups[strGroupName]
-      strURL = strBaseURL + strAPIFunction
       LogEntry("Now Pulling details about group {}".format(strGroupName))
+      strAPIFunction = "scanners/scanner_id/agent-groups/" + str(dictAllGroups[strGroupName])
+      strURL = strBaseURL + strAPIFunction
       APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
       if "agents" in APIResponse:
         if isinstance(APIResponse["agents"],list):
           for dictAgent in APIResponse["agents"]:
             LogEntry ("{} {}".format(dictAgent["name"],dictAgent["uuid"]))
             lstAssets.append(dictAgent["uuid"])
-
-
-
+        else:
+          LogEntry("No list under agents, can not deal",True)
+      else:
+        LogEntry("No agents in response, no idea what to do",True)
+      LogEntry("need apply tag AgentGroups:{} to {}".format(strGroupName,lstAssets))
+    else:
+      LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
+  
       # if strName not in dictAllValues:
       #   LogEntry ("Creating a new value with name and members of the group")
       #   dictPayload["category_name"] = "AgentGroups"
@@ -515,8 +459,6 @@ def main():
       #     LogEntry("Response for group {} is not dictionary\n{}".format(strName, APIResponse))
 
 
-    else:
-      LogEntry("Skipping group {}".format(strGroupName))
 
       
 
