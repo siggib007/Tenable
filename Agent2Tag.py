@@ -188,7 +188,7 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
   iErrText = ""
   WebRequest = None
 
-  LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
+  # LogEntry ("Doing a {} to URL: \n {}\n with payload of {}".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False)
@@ -260,7 +260,6 @@ def main():
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  iRowCount = 1
   tStart=time.time()
 
   strBaseDir = os.path.dirname(sys.argv[0])
@@ -399,19 +398,19 @@ def main():
     if isinstance(APIResponse["groups"],list):
       for dictAG in APIResponse["groups"]:
         strID = dictAG["id"]
-        strName = dictAG["name"]
+        strGroupName = dictAG["name"]
         iLastModified = dictAG["last_modification_date"]
         dtLastModified = formatUnixDate(iLastModified)
-        LogEntry ("Group {} last updated {} which is {} ".format(strName,iLastModified,dtLastModified))
+        LogEntry ("Group {} last updated {} which is {} ".format(strGroupName,iLastModified,dtLastModified))
         if iLastModified > iLastRan:
           LogEntry ("Group has been modified since last run, adding to list")
         else:
           LogEntry ("No change since last run, skipping")
           continue
-        if strName == "Default":
+        if strGroupName == "Default":
           LogEntry ("Skipping the default group")
           continue
-        dictAllGroups[strName] = strID
+        dictAllGroups[strGroupName] = strID
     else:
       LogEntry("No list in groups, can't do anything",True)
   else:
@@ -436,37 +435,31 @@ def main():
           LogEntry("No list under agents, can not deal",True)
       else:
         LogEntry("No agents in response, no idea what to do",True)
-      LogEntry("need apply tag AgentGroups:{} to {}".format(strGroupName,lstAssets))
+      if strGroupName in dictAllValues:
+        strTagUUID = dictAllValues[strGroupName]
+        LogEntry ("Tag AgentGroups:{} has UUID {}".format(strGroupName,strTagUUID))
+      else:
+        LogEntry ("Creating a new value with name and members of the group")
+        dictPayload["category_name"] = "AgentGroups"
+        dictPayload["value"] = strGroupName
+        dictPayload["description"] = "Created by script from Agent Group ID {}".format(dictAllGroups[strGroupName])
+        strMethod = "post"
+        strAPIFunction = "tags/values/"
+        strURL = strBaseURL + strAPIFunction
+        LogEntry("Submitting request to create")
+        APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+        if isinstance(APIResponse,dict):
+          if "uuid" in APIResponse:
+            strTagUUID = APIResponse["uuid"]
+            LogEntry("Tag Value created successfully. ID:{}".format(APIResponse["uuid"]))
+          else:
+            LogEntry("No UUID\n{}".format(APIResponse),True)
+        else:
+          LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))      
+      LogEntry("need apply tag AgentGroups:{} UUID {} to {}".format(strGroupName,strTagUUID,lstAssets))
     else:
       LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
   
-      # if strName not in dictAllValues:
-      #   LogEntry ("Creating a new value with name and members of the group")
-      #   dictPayload["category_name"] = "AgentGroups"
-      #   dictPayload["value"] = strName
-      #   dictPayload["description"] = "Created by a sync script from Agent Group ID {}".format(strID)
-      #   strMethod = "post"
-      #   strAPIFunction = "tags/values/"
-      #   strURL = strBaseURL + strAPIFunction
-      #   LogEntry("Submitting request to create")
-      #   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-      #   if isinstance(APIResponse,dict):
-      #     if "uuid" in APIResponse:
-      #       LogEntry("Tag Value created successfully. ID:{}".format(APIResponse["uuid"]))
-      #     else:
-      #       LogEntry("No UUID\n{}".format(APIResponse),True)
-      #   else:
-      #     LogEntry("Response for group {} is not dictionary\n{}".format(strName, APIResponse))
-
-
-
-      
-
-        
-        
-  iRowCount += 1
-
-
   LogEntry("Done!")
 
 if __name__ == '__main__':
