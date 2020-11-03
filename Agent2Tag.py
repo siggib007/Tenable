@@ -416,12 +416,12 @@ def main():
   else:
     LogEntry("no group in response, unable to proceed",True)
   
-  lstAssets = []
   for strGroupName in dictAllGroups.keys():
     if strFilter == "":
       strFilter = strGroupName
       iFilterLen = len(strFilter)
     if strGroupName[:iFilterLen] == strFilter:
+      lstAssets = []
       LogEntry("Now Pulling details about group {}".format(strGroupName))
       strAPIFunction = "scanners/scanner_id/agent-groups/" + str(dictAllGroups[strGroupName])
       strURL = strBaseURL + strAPIFunction
