@@ -456,7 +456,25 @@ def main():
             LogEntry("No UUID\n{}".format(APIResponse),True)
         else:
           LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))      
-      LogEntry("need apply tag AgentGroups:{} UUID {} to {}".format(strGroupName,strTagUUID,lstAssets))
+      lstTags = []
+      lstTags.append(strTagUUID)
+      dictPayload = {}
+      dictPayload["action"] = "add"
+      dictPayload["assets"] = lstAssets
+      dictPayload["tags"] = lstTags
+      strMethod = "post"
+      strAPIFunction = "tags/assets/assignments/"
+      strURL = strBaseURL + strAPIFunction
+      LogEntry ("Applying tags by calling {} with payload of {}".format(strURL,dictPayload))
+      APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+      if isinstance(APIResponse,dict):
+        if "job_uuid" in APIResponse:
+          LogEntry("Job submitted successfully. Job UUID:{}".format(APIResponse["job_uuid"]))
+        else:
+          LogEntry("No job UUID\n{}".format(APIResponse))
+      else:
+        LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))
+
     else:
       LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
   
