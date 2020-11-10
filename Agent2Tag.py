@@ -348,6 +348,42 @@ def GetAssetID(strHostName):
     LogEntry("No assets in response, no idea what to do",True)
   return strAssetID
 
+def Tenable2AssetID(strTenableID,strHostName):
+  dictPayload = {}
+  dictParams = {}
+  strAssetID = ""
+
+  strTenableID = strTenableID.replace("-","")
+  strMethod = "get"
+  dictParams["filter.0.filter"] = "tenable_uuid"
+  dictParams["filter.0.quality"] = "eq"
+  dictParams["filter.0.value"] = strTenableID
+
+  strParams = urlparse.urlencode(dictParams)
+
+  strAPIFunction = "workbenches/assets"
+  strURL = strBaseURL + strAPIFunction + "?" + strParams
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "assets" in APIResponse:
+    if isinstance(APIResponse["assets"],list):
+      if len(APIResponse["assets"]) == 0:
+        LogEntry("Empty response for {}".format(strHostName))
+      for dictAsset in APIResponse["assets"]:
+        strAssetID = dictAsset["id"]
+        if "has_agent" in dictAsset:
+          if dictAsset["has_agent"]:
+            LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
+            continue
+          else:
+            LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
+        else:
+          LogEntry("No 'has_agent'")
+    else:
+      LogEntry("No list under assets, can not deal",True)
+  else:
+    LogEntry("No assets in response, no idea what to do",True)
+  return strAssetID
+
 def CreateTag(strGroupName,iGroupID):
   dictPayload = {}
 
@@ -550,7 +586,8 @@ def main():
       lstAssets = GroupDetails(dictAllGroups[strGroupName])
       LogEntry("Now getting AssetID for each Asset in the group")
       for dictAsset in lstAssets:
-        lstAssetID.append (GetAssetID(dictAsset["name"]))
+        # lstAssetID.append (GetAssetID(dictAsset["name"]))
+        lstAssetID.append (Tenable2AssetID(dictAsset["id"],dictAsset["name"]))
 
       if strGroupName in dictAllValues:
         strTagUUID = dictAllValues[strGroupName]
