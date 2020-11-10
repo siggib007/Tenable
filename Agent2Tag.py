@@ -328,13 +328,16 @@ def GetAssetID(strHostName):
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "assets" in APIResponse:
     if isinstance(APIResponse["assets"],list):
-      for dictAsset in APIResponse["agents"]:
+      for dictAsset in APIResponse["assets"]:
         strAssetID = dictAsset["id"]
         if "has_agent" in dictAsset:
-          LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
-          continue
+          if dictAsset["has_agent"]:
+            LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
+            continue
+          else:
+            LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
         else:
-          LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
+          LogEntry("No 'has_agent'")
     else:
       LogEntry("No list under assets, can not deal",True)
   else:
@@ -471,6 +474,13 @@ def main():
     else:
       bNotifyEnabled = False
   
+  if "DiffOnly" in dictConfig:
+    if dictConfig["DiffOnly"].lower() == "yes" \
+      or dictConfig["DiffOnly"].lower() == "true":
+      bDiffOnly = True
+    else:
+      bDiffOnly = False
+
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
   else:
@@ -495,28 +505,33 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  if os.path.isfile(strCacheFile):
-    objCache = open(strCacheFile,"r")
-    strLines = objCache.readline()
-    objCache.close()
-    if isFloat(strLines):
-      iLastRan = float(strLines)
-      LogEntry("Found last ran as {} ".format(iLastRan))
+  if bDiffOnly:
+    if os.path.isfile(strCacheFile):
+      objCache = open(strCacheFile,"r")
+      strLines = objCache.readline()
+      objCache.close()
+      if isFloat(strLines):
+        iLastRan = float(strLines)
+        LogEntry("Found last ran as {} ".format(iLastRan))
+      else:
+        LogEntry("Last ran time stored as {} which is not a valid floating number, using defaults.".format(strLines))
+        iLastRan = 0.0 # defaulting to beginging of time
+        # iLastRan = time.time()
+        # iLastRan -= 604800 # subtracting 7 days from today as default
     else:
-      LogEntry("Last ran time stored as {} which is not a valid floating number.".format(strLines))
+      LogEntry("No last ran time found, using defaults")
       iLastRan = 0.0 # defaulting to beginging of time
       # iLastRan = time.time()
       # iLastRan -= 604800 # subtracting 7 days from today as default
+    strOut =str(time.time()) 
   else:
-    LogEntry("No last ran time found")
+    strOut = "0.0"
     iLastRan = 0.0 # defaulting to beginging of time
-    # iLastRan = time.time()
-    # iLastRan -= 604800 # subtracting 7 days from today as default
   LogEntry("Last ran time set to {} which is {}".format(iLastRan,formatUnixDate(iLastRan)))
-  # objCache = open(strCacheFile,"w",1)
-  # objCache.write(str(time.time()))
-  # objCache.close()
-  # LogEntry("Saved current time to cache as last ran time")
+  objCache = open(strCacheFile,"w",1)
+  objCache.write(strOut)
+  objCache.close()
+  LogEntry("Saved current time to cache as last ran time")
 
   dictAllValues = GetValues()
   dictAllGroups = GetGroups()
