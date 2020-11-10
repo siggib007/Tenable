@@ -315,7 +315,7 @@ def GetAssetID(strHostName):
   dictPayload = {}
   dictParams = {}
   strAssetID = ""
-  
+
   strMethod = "get"
   dictParams["filter.0.filter"] = "host.target"
   dictParams["filter.0.quality"] = "match"
@@ -330,6 +330,8 @@ def GetAssetID(strHostName):
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "assets" in APIResponse:
     if isinstance(APIResponse["assets"],list):
+      if len(APIResponse["assets"]) == 0:
+        LogEntry("Empty response for {}".format(strHostName))
       for dictAsset in APIResponse["assets"]:
         strAssetID = dictAsset["id"]
         if "has_agent" in dictAsset:
