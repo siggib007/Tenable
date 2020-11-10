@@ -302,12 +302,43 @@ def GroupDetails(iGroupID):
     if isinstance(APIResponse["agents"],list):
       for dictAgent in APIResponse["agents"]:
         LogEntry ("{} {}".format(dictAgent["name"],dictAgent["uuid"]))
-        lstAssets.append(dictAgent["uuid"])
+        lstAssets.append({"id":dictAgent["uuid"],"name":dictAgent["name"]})
     else:
       LogEntry("No list under agents, can not deal",True)
   else:
     LogEntry("No agents in response, no idea what to do",True)
   return lstAssets
+
+def GetAssetID(strHostName):
+  dictPayload = {}
+  strMethod = "get"
+  dictParams = {}
+  dictParams["filter.0.filter"] = "host.target"
+  dictParams["filter.0.quality"] = "match"
+  dictParams["filter.0.value"] = strHostName
+  dictParams["filter.1.filter"] = "fqdn"
+  dictParams["filter.1.quality"] = "match"
+  dictParams["filter.1.value"] = strHostName
+  strParams = urlparse.urlencode(dictParams)
+
+  strAPIFunction = "/workbenches/assets"
+  strURL = strBaseURL + strAPIFunction + "?" + strParams
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "assets" in APIResponse:
+    if isinstance(APIResponse["assets"],list):
+      for dictAsset in APIResponse["agents"]:
+        strAssetID = dictAsset["id"]
+        if "has_agent" in dictAsset:
+          LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
+          continue
+        else:
+          LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
+    else:
+      LogEntry("No list under assets, can not deal",True)
+  else:
+    LogEntry("No assets in response, no idea what to do",True)
+  return strAssetID
+
 
 def CreateTag(strGroupName,iGroupID):
   dictPayload = {}
@@ -489,7 +520,7 @@ def main():
   dictAllValues = GetValues()
   dictAllGroups = GetGroups()
 
-  
+  lstAssetID = []
   for strGroupName in dictAllGroups.keys():
     if strFilter == "":
       strFilter = strGroupName
@@ -497,6 +528,8 @@ def main():
     if strGroupName[:iFilterLen] == strFilter:
       LogEntry("Now Pulling details about group {}".format(strGroupName))
       lstAssets = GroupDetails(dictAllGroups[strGroupName])
+      for dictAsset in lstAssets:
+        lstAssetID.append (GetAssetID(dictAsset["name"]))
 
       if strGroupName in dictAllValues:
         strTagUUID = dictAllValues[strGroupName]
@@ -504,7 +537,8 @@ def main():
       else:
         LogEntry ("Creating a new value with name and members of the group")
         strTagUUID = CreateTag(strGroupName,dictAllGroups[strGroupName])
-      TagAssets(strTagUUID,lstAssets)
+      
+      TagAssets(strTagUUID,lstAssetID)
     else:
       LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
   LogEntry("Done!")
