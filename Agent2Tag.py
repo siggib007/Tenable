@@ -221,9 +221,11 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
+    LogEntry ("Doing a {} to URL: {} with payload of '{}' resulted in {} error".format(
+      strMethod,strURL,dictPayload,iErrCode))
+    LogEntry (WebRequest.text)
 
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
@@ -321,7 +323,7 @@ def GetAssetID(strHostName):
   dictParams["filter.1.value"] = strHostName
   strParams = urlparse.urlencode(dictParams)
 
-  strAPIFunction = "/workbenches/assets"
+  strAPIFunction = "workbenches/assets"
   strURL = strBaseURL + strAPIFunction + "?" + strParams
   APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
   if "assets" in APIResponse:
@@ -338,7 +340,6 @@ def GetAssetID(strHostName):
   else:
     LogEntry("No assets in response, no idea what to do",True)
   return strAssetID
-
 
 def CreateTag(strGroupName,iGroupID):
   dictPayload = {}
@@ -528,6 +529,7 @@ def main():
     if strGroupName[:iFilterLen] == strFilter:
       LogEntry("Now Pulling details about group {}".format(strGroupName))
       lstAssets = GroupDetails(dictAllGroups[strGroupName])
+      LogEntry("Now getting AssetID for each Asset in the group")
       for dictAsset in lstAssets:
         lstAssetID.append (GetAssetID(dictAsset["name"]))
 
