@@ -239,6 +239,117 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def GetValues():
+  dictAllValues = {}
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "tags/values"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Pulling a list of existing Tag Values")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "values" in APIResponse:
+    if isinstance(APIResponse["values"],list):
+        for dictValue in APIResponse["values"]:
+            strValueID = dictValue["uuid"]
+            strValue = dictValue["value"]
+            dictAllValues[strValue] = strValueID
+    else:
+        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
+  else:
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+  return dictAllValues
+
+def GetGroups():
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "scanners/scanner_id/agent-groups/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Now Pulling a list of all Agent Groups")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  dictAllGroups = {}
+  if "groups" in APIResponse:
+    if isinstance(APIResponse["groups"],list):
+      for dictAG in APIResponse["groups"]:
+        strID = dictAG["id"]
+        strGroupName = dictAG["name"]
+        iLastModified = dictAG["last_modification_date"]
+        dtLastModified = formatUnixDate(iLastModified)
+        LogEntry ("Group {} last updated {} which is {} ".format(strGroupName,iLastModified,dtLastModified))
+        if iLastModified > iLastRan:
+          LogEntry ("Group has been modified since last run, adding to list")
+        else:
+          LogEntry ("No change since last run, skipping")
+          continue
+        if strGroupName == "Default":
+          LogEntry ("Skipping the default group")
+          continue
+        dictAllGroups[strGroupName] = strID
+    else:
+      LogEntry("No list in groups, can't do anything",True)
+  else:
+    LogEntry("no group in response, unable to proceed",True)
+  return dictAllGroups
+
+def GroupDetails(iGroupID):
+  dictPayload = {}
+  strMethod = "get"
+  lstAssets = []
+
+  strAPIFunction = "scanners/agents/agent-groups/" + str(iGroupID)
+  strURL = strBaseURL + strAPIFunction
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "agents" in APIResponse:
+    if isinstance(APIResponse["agents"],list):
+      for dictAgent in APIResponse["agents"]:
+        LogEntry ("{} {}".format(dictAgent["name"],dictAgent["uuid"]))
+        lstAssets.append(dictAgent["uuid"])
+    else:
+      LogEntry("No list under agents, can not deal",True)
+  else:
+    LogEntry("No agents in response, no idea what to do",True)
+  return lstAssets
+
+def CreateTag(strGroupName,iGroupID):
+  dictPayload = {}
+
+  dictPayload["category_name"] = "AgentGroups"
+  dictPayload["value"] = strGroupName
+  dictPayload["description"] = "Created by script from Agent Group ID {}".format(iGroupID)
+  strMethod = "post"
+  strAPIFunction = "tags/values/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Submitting request to create")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,dict):
+    if "uuid" in APIResponse:
+      strTagUUID = APIResponse["uuid"]
+      LogEntry("Tag Value created successfully. ID:{}".format(APIResponse["uuid"]))
+    else:
+      LogEntry("No UUID\n{}".format(APIResponse),True)
+  else:
+    LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))
+  return strTagUUID
+
+def TagAssets(strTagUUID,lstAssets):
+  lstTags = []
+  lstTags.append(strTagUUID)
+  dictPayload = {}
+  dictPayload["action"] = "add"
+  dictPayload["assets"] = lstAssets
+  dictPayload["tags"] = lstTags
+  strMethod = "post"
+  strAPIFunction = "tags/assets/assignments/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry ("Applying tags by calling {} with payload of {}".format(strURL,dictPayload))
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,dict):
+    if "job_uuid" in APIResponse:
+      LogEntry("Job submitted successfully. Job UUID:{}".format(APIResponse["job_uuid"]))
+    else:
+      LogEntry("No job UUID\n{}".format(APIResponse))
+  else:
+    LogEntry("Response is not dictionary\n{}".format(APIResponse))
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -255,6 +366,9 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global strBaseURL
+  global strHeader
+  global iLastRan
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -357,127 +471,42 @@ def main():
       iLastRan = float(strLines)
       LogEntry("Found last ran as {} ".format(iLastRan))
     else:
-      LogEntry("Last ran time stored as {} which is not a valid int.".format(strLines))
-      iLastRan = time.time()
-      iLastRan -= 604800 # subtracting 7 days from today as default
+      LogEntry("Last ran time stored as {} which is not a valid floating number.".format(strLines))
+      iLastRan = 0.0 # defaulting to beginging of time
+      # iLastRan = time.time()
+      # iLastRan -= 604800 # subtracting 7 days from today as default
   else:
     LogEntry("No last ran time found")
-    iLastRan = time.time()
-    iLastRan -= 604800 # subtracting 7 days from today as default
+    iLastRan = 0.0 # defaulting to beginging of time
+    # iLastRan = time.time()
+    # iLastRan -= 604800 # subtracting 7 days from today as default
   LogEntry("Last ran time set to {} which is {}".format(iLastRan,formatUnixDate(iLastRan)))
-  objCache = open(strCacheFile,"w",1)
-  objCache.write(str(time.time()))
-  objCache.close()
-  LogEntry("Saved current time to cache as last ran time")
+  # objCache = open(strCacheFile,"w",1)
+  # objCache.write(str(time.time()))
+  # objCache.close()
+  # LogEntry("Saved current time to cache as last ran time")
 
-  dictPayload = {}
-  dictAllValues = {}
-  strMethod = "get"
-  strAPIFunction = "tags/values"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of existing Tag Values")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "values" in APIResponse:
-    if isinstance(APIResponse["values"],list):
-        for dictValue in APIResponse["values"]:
-            strValueID = dictValue["uuid"]
-            strValue = dictValue["value"]
-            dictAllValues[strValue] = strValueID
-    else:
-        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
-  else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+  dictAllValues = GetValues()
+  dictAllGroups = GetGroups()
 
-  strMethod = "get"
-  strAPIFunction = "scanners/scanner_id/agent-groups/"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Now Pulling a list of all Agent Groups")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  dictAllGroups = {}
-  if "groups" in APIResponse:
-    if isinstance(APIResponse["groups"],list):
-      for dictAG in APIResponse["groups"]:
-        strID = dictAG["id"]
-        strGroupName = dictAG["name"]
-        iLastModified = dictAG["last_modification_date"]
-        dtLastModified = formatUnixDate(iLastModified)
-        LogEntry ("Group {} last updated {} which is {} ".format(strGroupName,iLastModified,dtLastModified))
-        if iLastModified > iLastRan:
-          LogEntry ("Group has been modified since last run, adding to list")
-        else:
-          LogEntry ("No change since last run, skipping")
-          continue
-        if strGroupName == "Default":
-          LogEntry ("Skipping the default group")
-          continue
-        dictAllGroups[strGroupName] = strID
-    else:
-      LogEntry("No list in groups, can't do anything",True)
-  else:
-    LogEntry("no group in response, unable to proceed",True)
   
   for strGroupName in dictAllGroups.keys():
     if strFilter == "":
       strFilter = strGroupName
       iFilterLen = len(strFilter)
     if strGroupName[:iFilterLen] == strFilter:
-      lstAssets = []
       LogEntry("Now Pulling details about group {}".format(strGroupName))
-      strAPIFunction = "scanners/scanner_id/agent-groups/" + str(dictAllGroups[strGroupName])
-      strURL = strBaseURL + strAPIFunction
-      APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-      if "agents" in APIResponse:
-        if isinstance(APIResponse["agents"],list):
-          for dictAgent in APIResponse["agents"]:
-            LogEntry ("{} {}".format(dictAgent["name"],dictAgent["uuid"]))
-            lstAssets.append(dictAgent["uuid"])
-        else:
-          LogEntry("No list under agents, can not deal",True)
-      else:
-        LogEntry("No agents in response, no idea what to do",True)
+      lstAssets = GroupDetails(dictAllGroups[strGroupName])
+
       if strGroupName in dictAllValues:
         strTagUUID = dictAllValues[strGroupName]
         LogEntry ("Tag AgentGroups:{} has UUID {}".format(strGroupName,strTagUUID))
       else:
         LogEntry ("Creating a new value with name and members of the group")
-        dictPayload["category_name"] = "AgentGroups"
-        dictPayload["value"] = strGroupName
-        dictPayload["description"] = "Created by script from Agent Group ID {}".format(dictAllGroups[strGroupName])
-        strMethod = "post"
-        strAPIFunction = "tags/values/"
-        strURL = strBaseURL + strAPIFunction
-        LogEntry("Submitting request to create")
-        APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-        if isinstance(APIResponse,dict):
-          if "uuid" in APIResponse:
-            strTagUUID = APIResponse["uuid"]
-            LogEntry("Tag Value created successfully. ID:{}".format(APIResponse["uuid"]))
-          else:
-            LogEntry("No UUID\n{}".format(APIResponse),True)
-        else:
-          LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))      
-      lstTags = []
-      lstTags.append(strTagUUID)
-      dictPayload = {}
-      dictPayload["action"] = "add"
-      dictPayload["assets"] = lstAssets
-      dictPayload["tags"] = lstTags
-      strMethod = "post"
-      strAPIFunction = "tags/assets/assignments/"
-      strURL = strBaseURL + strAPIFunction
-      LogEntry ("Applying tags by calling {} with payload of {}".format(strURL,dictPayload))
-      APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-      if isinstance(APIResponse,dict):
-        if "job_uuid" in APIResponse:
-          LogEntry("Job submitted successfully. Job UUID:{}".format(APIResponse["job_uuid"]))
-        else:
-          LogEntry("No job UUID\n{}".format(APIResponse))
-      else:
-        LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))
-
+        strTagUUID = CreateTag(strGroupName,dictAllGroups[strGroupName])
+      TagAssets(strTagUUID,lstAssets)
     else:
       LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
-  
   LogEntry("Done!")
 
 if __name__ == '__main__':
