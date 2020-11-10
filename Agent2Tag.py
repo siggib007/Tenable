@@ -370,14 +370,7 @@ def Tenable2AssetID(strTenableID,strHostName):
         LogEntry("Empty response for {}".format(strHostName))
       for dictAsset in APIResponse["assets"]:
         strAssetID = dictAsset["id"]
-        if "has_agent" in dictAsset:
-          if dictAsset["has_agent"]:
-            LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
-            continue
-          else:
-            LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
-        else:
-          LogEntry("No 'has_agent'")
+        LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
     else:
       LogEntry("No list under assets, can not deal",True)
   else:
