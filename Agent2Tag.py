@@ -313,8 +313,10 @@ def GroupDetails(iGroupID):
 
 def GetAssetID(strHostName):
   dictPayload = {}
-  strMethod = "get"
   dictParams = {}
+  strAssetID = ""
+  
+  strMethod = "get"
   dictParams["filter.0.filter"] = "host.target"
   dictParams["filter.0.quality"] = "match"
   dictParams["filter.0.value"] = strHostName
