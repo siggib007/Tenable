@@ -270,6 +270,7 @@ def GroupDetails(lstGroups):
   dictPayload = {}
   strMethod = "get"
   
+  LogEntry ("Starting to fetch details. Creating the CSV file {} ".format(strCSVName))
   objCSVOut = open(strCSVName,"w",1)
   objCSVOut.write("Group ID,Name,Type,Create at,Created By,Updated at,Updated By,Rules,Principals\n")
   
@@ -303,19 +304,39 @@ def GroupDetails(lstGroups):
       strUpdateName = dictGroup["updated_by_name"]
     else:
       strUpdateName = "No update name"
+    LogEntry("Fetching Group {} | {} ".format(strName,strID))
     strAPIFunction = "v2/access-groups/" + str(strID)
     strURL = strBaseURL + strAPIFunction
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
     if "rules" in APIResponse:
       if isinstance(APIResponse["rules"],list):
-        strRules = "List of {} rules".format(len(APIResponse["rules"]))
+        # strRules = "List of {} rules".format(len(APIResponse["rules"]))
+        dictRules=APIResponse["rules"][0]
+        if isinstance(dictRules["terms"],list):
+          iTerms = len(dictRules["terms"])
+          if iTerms < 5:
+            strTerms = "|".join(dictRules["terms"])
+          else:
+            strTerms = "list of {} items".format(iTerms)
+        else:
+          strTerms = "Terms is not a list"
+        strRules = "{} {} {} ".format(dictRules["type"],dictRules["operator"],strTerms)
       else:
         strRules = "Rules does not contain a list"
     else:
       strRules = "There are no rules"
     if "principals" in APIResponse:
       if isinstance(APIResponse["principals"],list):
-        strPrincipals = "List of {} principals".format(len(APIResponse["principals"]))
+        # strPrincipals = "List of {} principals".format(len(APIResponse["principals"]))
+        lstPrincipals = []
+        for dictPrincipals in APIResponse["principals"]:
+          if dictPrincipals["type"] == "all_users":
+            strPType = dictPrincipals["principal_name"]
+          else:
+            strPType = " {} {} ".format(dictPrincipals["type"],dictPrincipals["principal_name"])
+          strTemp = " {} {} ".format(strPType,";".join(dictPrincipals["permissions"]))
+          lstPrincipals.append(strTemp)
+        strPrincipals = "|".join(lstPrincipals)
       else:
         strPrincipals = "principals does not contain a list"
     else:
