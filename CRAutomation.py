@@ -13,6 +13,7 @@ import requests
 import os
 import string
 import time
+import datetime
 import urllib.parse as urlparse
 import subprocess as proc
 import json
@@ -25,6 +26,8 @@ requests.urllib3.disable_warnings()
 #Define few things
 iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
+iDefCRDelta = 2 # Default number of days for CR Planned Start
+iDefCRDur = 7 # Default number of days for a CR to be active
 iTotalSleep = 0
 tLastCall = 0
 iLineCount = 0
@@ -249,7 +252,7 @@ def MakeAPICall (strURL, strHeader, strMethod, dictPayload="", strUserName="", s
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
+    # LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
 
@@ -291,6 +294,37 @@ def FetchNewVer ():
     LogEntry ("Unepxected results: {}".format(APIResponse),True)
   return dictResult
 
+def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
+  dtUTCNow = datetime.datetime.utcnow().replace(microsecond=0)
+  dtStart = dtUTCNow+datetime.timedelta(days=iDeltaStart)
+  dtStop = dtStart+datetime.timedelta(days=iDuration)
+  strStartDT = dtStart.isoformat()+"Z"
+  strStopDT = dtStop.isoformat()+"Z"
+  strMethod = "post"
+  strAPIFunction = "itsm/change/v2/create/"
+  dictCRHeader = {}
+  dictPayload = {}
+  dictCRHeader["user-id"] = strTicketOwner
+  dictCRHeader["Accept"] = "application/json"
+  dictCRHeader["Content-Type"] = "application/json"
+  dictCRHeader["Authorization"] = "Bearer " + strAccessToken
+  dictPayload["impact"] = "No Impact"
+  dictPayload["plannedStart"] = strStartDT
+  dictPayload["plannedEnd"] = strStopDT
+  dictPayload["crShortDescription"] = "Tenable Nessus Agent Update"
+  dictPayload["crDescription"] = ("Tenable nessus Agent Update Automation. "
+        "Upgrading to Version is {} with release date of {}").format(strNewVersion,strReleaseDT)
+  strURL = strITSMURL + strAPIFunction+strActivity
+  LogEntry("Searching for Deployment ready tickets")
+  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,str):
+    LogEntry ("Unexpected API Response: {} ".format(APIResponse))
+  elif isinstance(APIResponse,dict):
+    LogEntry (APIResponse)
+    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
+  else:
+    LogEntry ("API response was type {} which is totally unexpected")  
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -308,6 +342,10 @@ def main():
   global tStart
   global strTNBLHeader
   global strBaseURL
+  global strTicketOwner
+  global strAccessToken
+  global strITSMURL
+  global strActivity
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -388,6 +426,18 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
+  if "DeltaStart" in dictConfig:
+    if isInt(dictConfig["DeltaStart"]):
+      iCRDeltaStart = int(dictConfig["DeltaStart"])
+    else:
+      LogEntry("Invalid DeltaStart, setting to defaults of {}".format(iDefCRDelta))
+
+  if "CRDuration" in dictConfig:
+    if isInt(dictConfig["CRDuration"]):
+      iCRDuration = int(dictConfig["CRDuration"])
+    else:
+      LogEntry("Invalid CRDuration, setting to defaults of {}".format(iDefCRDur))
+
   if "ITSMURL" in dictConfig:
     strITSMURL = dictConfig["ITSMURL"]
   else:
@@ -444,7 +494,12 @@ def main():
   strURL = strITSMURL + strAPIFunction
   LogEntry("Searching for Deployment ready tickets")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
-  LogEntry ("API Response: {} ".format(APIResponse))
+  if isinstance(APIResponse,str):
+    LogEntry ("Unexpected API Response: {} ".format(APIResponse))
+  elif isinstance(APIResponse,dict):
+    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
+  else:
+    LogEntry ("API response was type {} which is totally unexpected")
 
 
   # Check for new version
@@ -458,6 +513,7 @@ def main():
   if bNew:
     LogEntry ("You have a new version. Creating a {} CR".format(strActivity))
     # Create a CR 
+    CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
   else:
     LogEntry ("Current version is either the same or older")
 
