@@ -274,7 +274,7 @@ def FetchNewVer ():
   strAPIFunction = "downloads/api/v2/pages/nessus-agents"
   strURL = strBaseURL + strAPIFunction
   LogEntry("Pulling a list of existing Nessus Agent releases")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  APIResponse = MakeAPICall(strURL,strTNBLHeader,strMethod, dictPayload)
   if "releases" in APIResponse:
     if "latest" in APIResponse["releases"]:
       for strKey in APIResponse["releases"]["latest"].keys():
@@ -306,7 +306,7 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
-  global strHeader
+  global strTNBLHeader
   global strBaseURL
 
   strNotifyToken = None
@@ -314,6 +314,8 @@ def main():
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   tStart=time.time()
+  dictPayload = {}
+  dictResult = {}
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -358,7 +360,7 @@ def main():
   dictConfig = processConf(strConf_File)
 
   if "Auth" in dictConfig :
-    strHeader={
+    strTNBLHeader={
       'Content-type':'application/json',
       'Authorization':'Bearer ' + dictConfig["Auth"] 
       }
@@ -386,7 +388,65 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  
+  if "ITSMURL" in dictConfig:
+    strITSMURL = dictConfig["ITSMURL"]
+  else:
+    CleanExit("No ITSMURL provided")
+  if strITSMURL[-1:] != "/":
+    strITSMURL += "/"
+  if "ClientID" in dictConfig:
+    strClientID = dictConfig["ClientID"]
+  else:
+    CleanExit("No ClientID provided")
+
+  if "Secret" in dictConfig:
+    strSecret = dictConfig["Secret"]
+  else:
+    CleanExit("No Secret provided")
+
+  if "Activity" in dictConfig:
+    strActivity = dictConfig["Activity"]
+  else:
+    CleanExit("No Activity provided")
+
+  if "TicketOwner" in dictConfig:
+    strTicketOwner = dictConfig["TicketOwner"]
+  else:
+    CleanExit("No TicketOwner provided")
+
+  if "ConsumerName" in dictConfig:
+    strConsumerName = dictConfig["ConsumerName"]
+  else:
+    CleanExit("No Consumer Name provided")
+
+  # Fetching Oauth Token for Pier2.0
+  strMethod = "post"
+  strAPIFunction = "oauth2/v6/tokens"
+  strCRHeader = ""
+  strURL = strITSMURL + strAPIFunction
+  LogEntry("Fetching OAuth Token")
+  APIResponse = MakeAPICall(strURL,strCRHeader,strMethod, dictPayload,strClientID,strSecret)
+  if "access_token" in APIResponse:
+    strAccessToken = APIResponse["access_token"]
+  else:
+    LogEntry ("failed to fetch token, here is what I got back {} ".format(APIResponse),True)
+
+  # Pulling list of deployment ready tickets
+  strMethod = "post"
+  strAPIFunction = "itsm/change/v2/search"
+  dictCRHeader = {}
+  dictCRHeader["user-id"] = strTicketOwner
+  dictCRHeader["Accept"] = "application/json"
+  dictCRHeader["Content-Type"] = "application/json"
+  dictCRHeader["consumer-name"] = strConsumerName
+  dictCRHeader["Authorization"] = "Bearer " + strAccessToken
+  dictPayload["query"] = "(createdBy = '{}' AND status = 'Deployment Ready')".format(strTicketOwner)
+  strURL = strITSMURL + strAPIFunction
+  LogEntry("Searching for Deployment ready tickets")
+  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  LogEntry ("API Response: {} ".format(APIResponse))
+
+
   # Check for new version
   LogEntry ("Last known version was {} ".format(strLastVer))
   dictResult = FetchNewVer()
@@ -396,7 +456,7 @@ def main():
   objCache.close()  
   bNew = VersionCmp(strLastVer,strNewVer)
   if bNew:
-    LogEntry ("You have a new version")
+    LogEntry ("You have a new version. Creating a {} CR".format(strActivity))
     # Create a CR 
   else:
     LogEntry ("Current version is either the same or older")
