@@ -270,6 +270,28 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def SearchCR(strCrit):
+  LogEntry("Searching for: {}".format(strCrit))
+  dictPayload = {}
+  strMethod = "post"
+  strAPIFunction = "itsm/change/v2/search"
+  dictCRHeader = {}
+  dictCRHeader["user-id"] = strTicketOwner
+  dictCRHeader["Accept"] = "application/json"
+  dictCRHeader["Content-Type"] = "application/json"
+  dictCRHeader["consumer-name"] = strConsumerName
+  dictCRHeader["Authorization"] = "Bearer " + strAccessToken
+  dictPayload["query"] = strCrit
+  strURL = strITSMURL + strAPIFunction
+  LogEntry("Searching for Deployment ready tickets")
+  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,str):
+    SendNotification ("Unexpected API Response while searching for {}: {} ".format(strCrit,APIResponse))
+  elif isinstance(APIResponse,dict):
+    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
+  else:
+    SendNotification ("API response was type {} which is totally unexpected")
+
 def FetchNewVer ():
   dictPayload = {}
   dictResult = {}
@@ -318,11 +340,12 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
   LogEntry("Submitting Ticket creation")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
   if isinstance(APIResponse,str):
-    SendNotification ("Unexpected API Response: {} ".format(APIResponse))
+    SendNotification ("Unexpected API Response while creating a CR: {} ".format(APIResponse))
   elif isinstance(APIResponse,dict):
     if "data" in APIResponse:
       if "cRID" in APIResponse["data"][0]:
         strCRNum = APIResponse["data"][0]["cRID"]
+        LogEntry("Created {}".format(strCRNum))
       else:
         strCRNum = "No CR Num"
         SendNotification("CR possible created but no CR number returned")
@@ -333,6 +356,7 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
   return strCRNum
 
 def UpdateCR (strCRNum,strAction,dictBody):
+  LogEntry("Going to update {} with {} and body of {}".format(strCRNum,strAction,dictBody))
   strMethod = "put"
   strAPIFunction = "itsm/change/v2/"
   dictCRHeader = {}
@@ -341,10 +365,9 @@ def UpdateCR (strCRNum,strAction,dictBody):
   dictCRHeader["Content-Type"] = "application/json"
   dictCRHeader["Authorization"] = "Bearer " + strAccessToken
   strURL = strITSMURL + strAPIFunction+strCRNum+strAction
-  LogEntry("Searching for Deployment ready tickets")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
   if isinstance(APIResponse,str):
-    SendNotification ("Unexpected API Response: {} ".format(APIResponse))
+    SendNotification ("Unexpected API Response while updating CR: {} ".format(APIResponse))
   elif isinstance(APIResponse,dict):
     if "data" in APIResponse:
       if "status" in APIResponse["data"][0]:
@@ -352,7 +375,7 @@ def UpdateCR (strCRNum,strAction,dictBody):
         LogEntry("CR {} updated, status {}".format(strCRNum,strStatus))
       else:
         strStatus = "No Status available"
-        SendNotification("CR possible update but no status returned")
+        SendNotification("CR possible updated but no status returned")
     else:
       SendNotification ("No data element returned when creating a CR, something is broken")      
   else:
@@ -379,6 +402,7 @@ def main():
   global strAccessToken
   global strITSMURL
   global strActivity
+  global strConsumerName
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -515,25 +539,7 @@ def main():
     LogEntry ("failed to fetch token, here is what I got back {} ".format(APIResponse),True)
 
   # Pulling list of deployment ready tickets
-  strMethod = "post"
-  strAPIFunction = "itsm/change/v2/search"
-  dictCRHeader = {}
-  dictCRHeader["user-id"] = strTicketOwner
-  dictCRHeader["Accept"] = "application/json"
-  dictCRHeader["Content-Type"] = "application/json"
-  dictCRHeader["consumer-name"] = strConsumerName
-  dictCRHeader["Authorization"] = "Bearer " + strAccessToken
-  dictPayload["query"] = "(createdBy = '{}' AND status = 'Deployment Ready')".format(strTicketOwner)
-  strURL = strITSMURL + strAPIFunction
-  LogEntry("Searching for Deployment ready tickets")
-  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
-  if isinstance(APIResponse,str):
-    LogEntry ("Unexpected API Response: {} ".format(APIResponse))
-  elif isinstance(APIResponse,dict):
-    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
-  else:
-    LogEntry ("API response was type {} which is totally unexpected")
-
+  SearchCR("(createdBy = '{}' AND status = 'Deployment Ready')".format(strTicketOwner))
 
   # Check for new version
   LogEntry ("Last known version was {} ".format(strLastVer))
@@ -544,7 +550,7 @@ def main():
     LogEntry ("You have a new version. Creating a {} CR".format(strActivity))
     # Create a CR 
     strCRNumber = CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
-    UpdateCR(strCRNumber,"/request-change","")
+    UpdateCR(strCRNumber,"/request-change",dictPayload)
     objCache = open(strCacheFile,"w",1)
     objCache.write(str(strNewVer))
     objCache.close()  
