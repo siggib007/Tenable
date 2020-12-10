@@ -283,7 +283,6 @@ def SearchCR(strCrit):
   dictCRHeader["Authorization"] = "Bearer " + strAccessToken
   dictPayload["query"] = strCrit
   strURL = strITSMURL + strAPIFunction
-  LogEntry("Searching for Deployment ready tickets")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
   if isinstance(APIResponse,str):
     SendNotification ("Unexpected API Response while searching for {}: {} ".format(strCrit,APIResponse))
@@ -339,6 +338,7 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
   strURL = strITSMURL + strAPIFunction+strActivity
   LogEntry("Submitting Ticket creation")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  strCRNum = ""
   if isinstance(APIResponse,str):
     SendNotification ("Unexpected API Response while creating a CR: {} ".format(APIResponse))
   elif isinstance(APIResponse,dict):
@@ -347,7 +347,6 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
         strCRNum = APIResponse["data"][0]["cRID"]
         LogEntry("Created {}".format(strCRNum))
       else:
-        strCRNum = "No CR Num"
         SendNotification("CR possible created but no CR number returned")
     else:
       SendNotification ("No data element returned when creating a CR, something is broken")      
@@ -542,6 +541,7 @@ def main():
   SearchCR("(createdBy = '{}' AND status = 'Deployment Ready')".format(strTicketOwner))
 
   # Check for new version
+  dictPayload = {}
   LogEntry ("Last known version was {} ".format(strLastVer))
   dictResult = FetchNewVer()
   strNewVer = dictResult["NewVer"]
@@ -550,10 +550,13 @@ def main():
     LogEntry ("You have a new version. Creating a {} CR".format(strActivity))
     # Create a CR 
     strCRNumber = CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
-    UpdateCR(strCRNumber,"/request-change",dictPayload)
-    objCache = open(strCacheFile,"w",1)
-    objCache.write(str(strNewVer))
-    objCache.close()  
+    if strCRNumber != "":
+      UpdateCR(strCRNumber,"/request-change",dictPayload)
+      objCache = open(strCacheFile,"w",1)
+      objCache.write(str(strNewVer))
+      objCache.close()
+    else:
+      LogEntry("Did not update CR or script cache due to lack of CR number")
   else:
     LogEntry ("Current version is either the same or older")
 
