@@ -315,15 +315,48 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
   dictPayload["crDescription"] = ("Tenable nessus Agent Update Automation. "
         "Upgrading to Version is {} with release date of {}").format(strNewVersion,strReleaseDT)
   strURL = strITSMURL + strAPIFunction+strActivity
-  LogEntry("Searching for Deployment ready tickets")
+  LogEntry("Submitting Ticket creation")
   APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
   if isinstance(APIResponse,str):
-    LogEntry ("Unexpected API Response: {} ".format(APIResponse))
+    SendNotification ("Unexpected API Response: {} ".format(APIResponse))
   elif isinstance(APIResponse,dict):
-    LogEntry (APIResponse)
-    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
+    if "data" in APIResponse:
+      if "cRID" in APIResponse["data"][0]:
+        strCRNum = APIResponse["data"][0]["cRID"]
+      else:
+        strCRNum = "No CR Num"
+        SendNotification("CR possible created but no CR number returned")
+    else:
+      SendNotification ("No data element returned when creating a CR, something is broken")      
   else:
-    LogEntry ("API response was type {} which is totally unexpected")  
+    SendNotification ("API response was type {} which is totally unexpected")
+  return strCRNum
+
+def UpdateCR (strCRNum,strAction,dictBody):
+  strMethod = "put"
+  strAPIFunction = "itsm/change/v2/"
+  dictCRHeader = {}
+  dictCRHeader["user-id"] = strTicketOwner
+  dictCRHeader["Accept"] = "application/json"
+  dictCRHeader["Content-Type"] = "application/json"
+  dictCRHeader["Authorization"] = "Bearer " + strAccessToken
+  strURL = strITSMURL + strAPIFunction+strCRNum+strAction
+  LogEntry("Searching for Deployment ready tickets")
+  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
+  if isinstance(APIResponse,str):
+    SendNotification ("Unexpected API Response: {} ".format(APIResponse))
+  elif isinstance(APIResponse,dict):
+    if "data" in APIResponse:
+      if "status" in APIResponse["data"][0]:
+        strStatus = APIResponse["data"][0]["status"]
+        LogEntry("CR {} updated, status {}".format(strCRNum,strStatus))
+      else:
+        strStatus = "No Status available"
+        SendNotification("CR possible update but no status returned")
+    else:
+      SendNotification ("No data element returned when creating a CR, something is broken")      
+  else:
+    SendNotification ("API response was type {} which is totally unexpected")
 
 def main():
   global ISO
@@ -506,14 +539,15 @@ def main():
   LogEntry ("Last known version was {} ".format(strLastVer))
   dictResult = FetchNewVer()
   strNewVer = dictResult["NewVer"]
-  objCache = open(strCacheFile,"w",1)
-  objCache.write(str(strNewVer))
-  objCache.close()  
   bNew = VersionCmp(strLastVer,strNewVer)
   if bNew:
     LogEntry ("You have a new version. Creating a {} CR".format(strActivity))
     # Create a CR 
-    CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
+    strCRNumber = CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
+    UpdateCR(strCRNumber,"/request-change","")
+    objCache = open(strCacheFile,"w",1)
+    objCache.write(str(strNewVer))
+    objCache.close()  
   else:
     LogEntry ("Current version is either the same or older")
 
