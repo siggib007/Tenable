@@ -116,15 +116,13 @@ def SendNotification (strMsg):
   if not bNotifyEnabled:
     LogEntry ("notify not enabled")
     return
-  global strNotifyURL
-  global strNotifyToken
-  global strNotifyChannel
+  strMsg = strScriptName + ": " + strMsg
   dictNotify = {}
-  dictNotify["token"] = strNotifyToken
-  dictNotify["channel"] = strNotifyChannel
+  dictNotify["token"] = dictConfig["NotifyToken"]
+  dictNotify["channel"] = dictConfig["NotifyChannel"]
   dictNotify["text"]=strMsg[:199]
   strNotifyParams = urlparse.urlencode(dictNotify)
-  strURL = strNotifyURL + "?" + strNotifyParams
+  strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
   bStatus = False
   try:
     WebRequest = requests.get(strURL,timeout=iTimeOut)
@@ -359,6 +357,7 @@ def UpdateCR (strCRNum,strAction,dictBody):
   strMethod = "put"
   strAPIFunction = "itsm/change/v2/"
   dictCRHeader = {}
+  strStatus = "unknown"
   dictCRHeader["user-id"] = strTicketOwner
   dictCRHeader["Accept"] = "application/json"
   dictCRHeader["Content-Type"] = "application/json"
@@ -379,6 +378,7 @@ def UpdateCR (strCRNum,strAction,dictBody):
       SendNotification ("No data element returned when creating a CR, something is broken")      
   else:
     SendNotification ("API response was type {} which is totally unexpected")
+  return strStatus
 
 def main():
   global ISO
@@ -402,10 +402,12 @@ def main():
   global strITSMURL
   global strActivity
   global strConsumerName
+  global dictConfig
 
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
+  bNotifyEnabled = False
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   tStart=time.time()
   dictPayload = {}
@@ -468,7 +470,20 @@ def main():
   if strBaseURL[-1:] != "/":
     strBaseURL += "/"
 
-  bNotifyEnabled = False
+  if "NotifyEnabled" in dictConfig:
+    if dictConfig["NotifyEnabled"].lower() == "yes" \
+      or dictConfig["NotifyEnabled"].lower() == "true":
+      bNotifyEnabled = True
+    else:
+      bNotifyEnabled = False
+
+  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
+    bNotifyEnabled = True
+  else:
+    bNotifyEnabled = False
+    LogEntry("Missing configuration items for Slack notifications, "
+      "turning slack notifications off")
+
   
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -551,12 +566,14 @@ def main():
     # Create a CR 
     strCRNumber = CreateCR(strNewVer,dictResult["ReleaseDT"],iCRDeltaStart,iCRDuration)
     if strCRNumber != "":
-      UpdateCR(strCRNumber,"/request-change",dictPayload)
+      strStatus = UpdateCR(strCRNumber,"/request-change",dictPayload)
+      SendNotification("{} created to update Nessus Agent to version {} released {}. CR Status {}".format(
+        strCRNumber,strNewVer,dictResult["ReleaseDT"],strStatus))
       objCache = open(strCacheFile,"w",1)
       objCache.write(str(strNewVer))
       objCache.close()
     else:
-      LogEntry("Did not update CR or script cache due to lack of CR number")
+      SendNotification("Did not update CR or script cache due to lack of CR number")
   else:
     LogEntry ("Current version is either the same or older")
 
