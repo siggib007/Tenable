@@ -32,6 +32,18 @@ iTotalSleep = 0
 tLastCall = 0
 iLineCount = 0
 iTotalScan = 0
+strDefDateFormat="%Y-%m-%d %H:%M:%S" #Format to use if nothing else is provided
+
+def formatUnixDate(iDate):
+  if iDate > 9999999999:
+    iDate = iDate / 1000
+  try:
+    structTime = time.localtime(iDate)
+    strDate = time.strftime(strFormat,structTime)
+  except Exception as err:
+    LogEntry ("Error converting {} to formated date. {}".format(iDate,err))
+    strDate = "Invalid Date"
+  return strDate
 
 def VersionCmp(strOld, strNew):
   LogEntry("Comparing {} and {} ".format(strOld, strNew))
@@ -268,7 +280,7 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
-def SearchCR(strCrit):
+def StartStop(strCrit):
   LogEntry("Searching for: {}".format(strCrit))
   dictPayload = {}
   strMethod = "post"
@@ -285,7 +297,51 @@ def SearchCR(strCrit):
   if isinstance(APIResponse,str):
     SendNotification ("Unexpected API Response while searching for {}: {} ".format(strCrit,APIResponse))
   elif isinstance(APIResponse,dict):
-    LogEntry ("got a dict back which is good. Here are the keys {} ".format(APIResponse.keys()))
+    if "data" in APIResponse:
+      if isinstance(APIResponse["data"],list):
+        dictPayload = {}
+        LogEntry ("The following CRs are ready for deployment as of now {}".format(time.time()))
+        for dictData in APIResponse["data"]:
+          if "crid" in dictData:
+            strCRID = "CR" + str(dictData["crid"])
+          else:
+            strCRID = "No CR ID"
+            LogEntry("Missing CR ID")
+          if "plannedStart" in dictData:
+            iPlannedStart = dictData["plannedStart"]
+          else:
+            iPlannedStart = "999999999999999"
+            LogEntry("No Planned Start date on {}".format(strCRID))
+          if "plannedEnd" in dictData:
+            iPlannedEnd = dictData["plannedEnd"]
+          else:
+            iPlannedEnd = "999999999999999"
+            LogEntry("No Planned End date on {}".format(strCRID))
+          if "status" in dictData:
+            strStatus = dictData["status"]
+          else:
+            strStatus = "No Status"
+            LogEntry("No status on {}".format(strCRID))
+
+          if strStatus == "Deployment Ready":
+            iActualEnd = (iPlannedEnd/1000) - iCRDeltaStop
+            if iPlannedStart/1000 > time.time():
+              LogEntry ("{} planned start is {}. Waiting to start until then".format(strCRID,formatUnixDate(iPlannedStart)))
+            else:
+              LogEntry("{} planned start is in past, starting CR".format(strCRID))
+              strStatus = UpdateCR(strCRID,"/start",dictPayload)
+              SendNotification("CR {} updated, current status: {}".format(strCRID,strStatus))
+          elif strStatus == "Implementation - In Progress":
+            if iActualEnd > time.time():
+              LogEntry ("{} planned end is {}. Waiting to end until closer to that".format(strCRID,formatUnixDate(iPlannedEnd)))
+            else:
+              LogEntry("{} planned end is in past or in the next couple of days, stopping the CR".format(strCRID))
+              strStatus = UpdateCR(strCRID,"/stop",dictPayload)
+              SendNotification("CR {} updated, current status: {}".format(strCRID,strStatus))
+      else:
+        LogEntry("Data element in response not a list, why ???",True)
+    else:
+      LogEntry("No Data element in reponse, WTF???",True)
   else:
     SendNotification ("API response was type {} which is totally unexpected")
 
@@ -403,6 +459,8 @@ def main():
   global strActivity
   global strConsumerName
   global dictConfig
+  global strFormat
+  global iCRDeltaStop
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -502,6 +560,20 @@ def main():
       iCRDeltaStart = int(dictConfig["DeltaStart"])
     else:
       LogEntry("Invalid DeltaStart, setting to defaults of {}".format(iDefCRDelta))
+      iCRDeltaStart = iDefCRDelta
+  else:
+    LogEntry("Missing Deltastart, using defaults of {}".format(iDefCRDelta))
+    iCRDeltaStart = iDefCRDelta
+
+  if "DeltaStop" in dictConfig:
+    if isInt(dictConfig["DeltaStop"]):
+      iCRDeltaStop = int(dictConfig["DeltaStop"]) * 86400
+    else:
+      LogEntry("Invalid DeltaStop, setting to defaults of {}".format(iDefCRDelta))
+      iCRDeltaStop = iDefCRDelta * 86400
+  else:
+    LogEntry("Missing Deltastop, using defaults of {}".format(iDefCRDelta))
+    iCRDeltaStop = iDefCRDelta * 86400
 
   if "CRDuration" in dictConfig:
     if isInt(dictConfig["CRDuration"]):
@@ -515,6 +587,7 @@ def main():
     CleanExit("No ITSMURL provided")
   if strITSMURL[-1:] != "/":
     strITSMURL += "/"
+  
   if "ClientID" in dictConfig:
     strClientID = dictConfig["ClientID"]
   else:
@@ -540,6 +613,11 @@ def main():
   else:
     CleanExit("No Consumer Name provided")
 
+  if "DateTimeFormat" in dictConfig:
+    strFormat = dictConfig["DateTimeFormat"]
+  else:
+    strFormat = strDefDateFormat
+
   # Fetching Oauth Token for Pier2.0
   strMethod = "post"
   strAPIFunction = "oauth2/v6/tokens"
@@ -552,8 +630,8 @@ def main():
   else:
     LogEntry ("failed to fetch token, here is what I got back {} ".format(APIResponse),True)
 
-  # Pulling list of deployment ready tickets
-  SearchCR("(createdBy = '{}' AND status = 'Deployment Ready')".format(strTicketOwner))
+  # Pulling list of tickets to start or stop
+  StartStop("(createdBy = '{}' AND status != 'Closed' AND status != 'implemented') ".format(strTicketOwner))
 
   # Check for new version
   dictPayload = {}
