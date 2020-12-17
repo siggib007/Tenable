@@ -300,7 +300,6 @@ def StartStop(strCrit):
     if "data" in APIResponse:
       if isinstance(APIResponse["data"],list):
         dictPayload = {}
-        LogEntry ("The following CRs are ready for deployment as of now {}".format(time.time()))
         for dictData in APIResponse["data"]:
           if "crid" in dictData:
             strCRID = "CR" + str(dictData["crid"])
@@ -324,20 +323,28 @@ def StartStop(strCrit):
             LogEntry("No status on {}".format(strCRID))
 
           if strStatus == "Deployment Ready":
-            iActualEnd = (iPlannedEnd/1000) - iCRDeltaStop
+            # LogEntry ("The following CRs are ready for deployment as of now {}".format(time.time()))
             if iPlannedStart/1000 > time.time():
-              LogEntry ("{} planned start is {}. Waiting to start until then".format(strCRID,formatUnixDate(iPlannedStart)))
+              LogEntry ("{} is deployment ready with planned start of {}. Waiting to start until then".format(strCRID,
+                formatUnixDate(iPlannedStart)))
             else:
-              LogEntry("{} planned start is in past, starting CR".format(strCRID))
+              LogEntry("{} is deployment ready with planned start in the past, starting CR".format(strCRID))
               strStatus = UpdateCR(strCRID,"/start",dictPayload)
-              SendNotification("CR {} updated, current status: {}".format(strCRID,strStatus))
+              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           elif strStatus == "Implementation - In Progress":
+            # LogEntry ("The following CRs are ready to be stopped as of now {}".format(time.time()))
+            iActualEnd = (iPlannedEnd/1000) - (iCRDeltaStop * 86400)
             if iActualEnd > time.time():
-              LogEntry ("{} planned end is {}. Waiting to end until closer to that".format(strCRID,formatUnixDate(iPlannedEnd)))
+              LogEntry ("{} is in progress and planned end is {}. Waiting to end until closer to that".format(strCRID,
+                formatUnixDate(iPlannedEnd)))
             else:
-              LogEntry("{} planned end is in past or in the next couple of days, stopping the CR".format(strCRID))
+              LogEntry("{} is in progress and planned end is {}, which is in past or in the next {} of days, stopping the CR".format(
+                strCRID,formatUnixDate(iPlannedEnd),iCRDeltaStop))
               strStatus = UpdateCR(strCRID,"/stop",dictPayload)
-              SendNotification("CR {} updated, current status: {}".format(strCRID,strStatus))
+              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+          else:
+            LogEntry("{} has a status of {} start:{} end:{} no case for that".format(strCRID,strStatus,
+              formatUnixDate(iPlannedStart),formatUnixDate(iPlannedEnd)))
       else:
         LogEntry("Data element in response not a list, why ???",True)
     else:
@@ -361,6 +368,7 @@ def FetchNewVer ():
             dictResult["NewVer"] = APIResponse["releases"]["latest"][strKey][0]["version"]
             dictResult["ReleaseDT"] = APIResponse["releases"]["latest"][strKey][0]["product_release_date"]
             LogEntry ("Latest Version is {} with release date of {} ".format(dictResult["NewVer"],dictResult["ReleaseDT"]))
+            break
           else:
             LogEntry ("Latest release of {} is not list, this can't be.".format(strKey),True)
     else:
@@ -567,13 +575,13 @@ def main():
 
   if "DeltaStop" in dictConfig:
     if isInt(dictConfig["DeltaStop"]):
-      iCRDeltaStop = int(dictConfig["DeltaStop"]) * 86400
+      iCRDeltaStop = int(dictConfig["DeltaStop"])
     else:
       LogEntry("Invalid DeltaStop, setting to defaults of {}".format(iDefCRDelta))
-      iCRDeltaStop = iDefCRDelta * 86400
+      iCRDeltaStop = iDefCRDelta
   else:
     LogEntry("Missing Deltastop, using defaults of {}".format(iDefCRDelta))
-    iCRDeltaStop = iDefCRDelta * 86400
+    iCRDeltaStop = iDefCRDelta
 
   if "CRDuration" in dictConfig:
     if isInt(dictConfig["CRDuration"]):
