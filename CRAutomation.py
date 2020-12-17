@@ -299,7 +299,6 @@ def StartStop(strCrit):
   elif isinstance(APIResponse,dict):
     if "data" in APIResponse:
       if isinstance(APIResponse["data"],list):
-        dictPayload = {}
         for dictData in APIResponse["data"]:
           if "crid" in dictData:
             strCRID = "CR" + str(dictData["crid"])
@@ -329,6 +328,7 @@ def StartStop(strCrit):
                 formatUnixDate(iPlannedStart)))
             else:
               LogEntry("{} is deployment ready with planned start in the past, starting CR".format(strCRID))
+              dictPayload = {}
               strStatus = UpdateCR(strCRID,"/start",dictPayload)
               SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           elif strStatus == "Implementation - In Progress":
@@ -340,8 +340,26 @@ def StartStop(strCrit):
             else:
               LogEntry("{} is in progress and planned end is {}, which is in past or in the next {} of days, stopping the CR".format(
                 strCRID,formatUnixDate(iPlannedEnd),iCRDeltaStop))
+              dictPayload = {}
               strStatus = UpdateCR(strCRID,"/stop",dictPayload)
               SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+              dictPayload = {"subStatus": "Complete/In Production – No Issues","closeComment": "Complete"}
+              strStatus = UpdateCR(strCRID,"/save",dictPayload)
+              dictPayload = {}
+              strStatus = UpdateCR(strCRID,"/close",dictPayload)              
+              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+          elif strStatus == "Implemented":
+            LogEntry("{} is implemented, Closing the CR".format(strCRID))
+            dictPayload = {"subStatus": "Complete/In Production – No Issues","closeComment": "Complete"}
+            strStatus = UpdateCR(strCRID,"/save",dictPayload)
+            dictPayload = {}
+            strStatus = UpdateCR(strCRID,"/close",dictPayload)
+            SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+          elif strStatus == "Draft":
+            LogEntry("{} is draft, submitting for change".format(strCRID))
+            dictPayload = {}
+            strStatus = UpdateCR(strCRID,"/request-change",dictPayload)
+            SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           else:
             LogEntry("{} has a status of {} start:{} end:{} no case for that".format(strCRID,strStatus,
               formatUnixDate(iPlannedStart),formatUnixDate(iPlannedEnd)))
@@ -639,7 +657,7 @@ def main():
     LogEntry ("failed to fetch token, here is what I got back {} ".format(APIResponse),True)
 
   # Pulling list of tickets to start or stop
-  StartStop("(createdBy = '{}' AND status != 'Closed' AND status != 'implemented') ".format(strTicketOwner))
+  StartStop("(createdBy = '{}' AND status != 'Closed') ".format(strTicketOwner))
 
   # Check for new version
   dictPayload = {}
