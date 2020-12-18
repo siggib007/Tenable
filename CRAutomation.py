@@ -438,12 +438,47 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
       SendNotification ("No data element returned when creating a CR, something is broken")      
   return strCRNum
 
+def ErrorParse(dictReturn):
+  strErrMsg = ""
+  # strCode = dictReturn["code"]
+  if "Text" in dictReturn:
+    strText = dictReturn["Text"]
+  else:
+    strText = "No details available"
+  if "json" in dictReturn:
+    if "data" in dictReturn["json"]:
+      if "errors" in dictReturn["json"]["data"]:
+        if isinstance(dictReturn["json"]["data"]["errors"],list):
+          for dictError in dictReturn["json"]["data"]["errors"]:
+            if "field" in dictError:
+              strFields = dictError["field"]
+            else:
+              strFields = "unknown"
+            if "message" in dictError:
+              strMessage = dictError["message"]
+            else:
+              strMessage = "error no message"
+            strErrMsg += "{} : {}\n".format(strFields,strMessage)
+        else:
+          LogEntry("Data Errors is not a list, don't know how to parse that. Here is what I got: {}".format(strText))
+          strErrMsg = "Unknown Error details, please check logs"
+      else:
+        LogEntry("No errors collection, no idea where the error is. Here is what I got: {}".format(strText))
+        strErrMsg = "Unknown Error details, please check logs"
+    else:
+      LogEntry("No data collection, no idea where the error is. Here is what I got: {}".format(strText))
+      strErrMsg = "Unknown Error details, please check logs"
+  else:
+    LogEntry("No json collection, no idea where the error is. Here is what I got: {}".format(strText))
+    strErrMsg = "Unknown Error details, please check logs"
+  return strErrMsg
+    
+
 def UpdateCR (strCRNum,strAction,dictBody):
   LogEntry("Going to update {} with {} and body of {}".format(strCRNum,strAction,dictBody))
   strMethod = "put"
   strAPIFunction = "itsm/change/v2/"
   dictCRHeader = {}
-  strErrMsg = ""
   strStatus = "unknown"
   dictCRHeader["user-id"] = strTicketOwner
   dictCRHeader["Accept"] = "application/json"
@@ -452,38 +487,8 @@ def UpdateCR (strCRNum,strAction,dictBody):
   strURL = strITSMURL + strAPIFunction+strCRNum+strAction
   dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
   if dictReturn["code"] != 200:
-    # strCode = dictReturn["code"]
-    if "Text" in dictReturn:
-      strText = dictReturn["Text"]
-    else:
-      strText = "No details available"
-    if "json" in dictReturn:
-      if "data" in dictReturn["json"]:
-        if "errors" in dictReturn["json"]["data"]:
-          if isinstance(dictReturn["json"]["data"]["errors"],list):
-            for dictError in dictReturn["json"]["data"]["errors"]:
-              if "field" in dictError:
-                strFields = dictError["field"]
-              else:
-                strFields = "unknown"
-              if "message" in dictError:
-                strMessage = dictError["message"]
-              else:
-                strMessage = "error no message"
-              strErrMsg += "{} : {}\n".format(strFields,strMessage)
-          else:
-            LogEntry("Data Errors is not a list, don't know how to parse that. Here is what I got: {}".format(strText))
-            strErrMsg = "Unknown Error details, please check logs"
-        else:
-          LogEntry("No errors collection, no idea where the error is. Here is what I got: {}".format(strText))
-          strErrMsg = "Unknown Error details, please check logs"
-      else:
-        LogEntry("No data collection, no idea where the error is. Here is what I got: {}".format(strText))
-        strErrMsg = "Unknown Error details, please check logs"
-    else:
-      LogEntry("No json collection, no idea where the error is. Here is what I got: {}".format(strText))
-      strErrMsg = "Unknown Error details, please check logs"
-    SendNotification("Update Failed: {}".format(strErrMsg))
+    strErrMsg = ErrorParse(dictReturn)
+    SendNotification("Update to {} Failed: {}".format(strCRNum,strErrMsg))
   else:
     dictJSONResult = dictReturn["json"]
     if "data" in dictJSONResult:
