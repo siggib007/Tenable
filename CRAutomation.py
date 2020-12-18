@@ -328,7 +328,8 @@ def StartStop(strCrit):
               LogEntry("{} is deployment ready with planned start in the past, starting CR".format(strCRID))
               dictPayload = {}
               strStatus = UpdateCR(strCRID,"/start",dictPayload)
-              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+              if strStatus != "unknown":
+                SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           elif strStatus == "Implementation - In Progress":
             # LogEntry ("The following CRs are ready to be stopped as of now {}".format(time.time()))
             iActualEnd = (iPlannedEnd/1000) - (iCRDeltaStop * 86400)
@@ -340,24 +341,28 @@ def StartStop(strCrit):
                 strCRID,formatUnixDate(iPlannedEnd),iCRDeltaStop))
               dictPayload = {}
               strStatus = UpdateCR(strCRID,"/stop",dictPayload)
-              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+              if strStatus != "unknown":
+                SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
               dictPayload = {"subStatus": "Complete/In Production – No Issues","closeComment": "Complete"}
               strStatus = UpdateCR(strCRID,"/save",dictPayload)
               dictPayload = {}
               strStatus = UpdateCR(strCRID,"/close",dictPayload)              
-              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+              if strStatus != "unknown":
+                SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           elif strStatus == "Implemented":
             LogEntry("{} is implemented, Closing the CR".format(strCRID))
             dictPayload = {"subStatus": "Complete/In Production – No Issues","closeComment": "Complete"}
             strStatus = UpdateCR(strCRID,"/save",dictPayload)
             dictPayload = {}
             strStatus = UpdateCR(strCRID,"/close",dictPayload)
-            SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+            if strStatus != "unknown":
+              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           elif strStatus == "Draft":
             LogEntry("{} is draft, submitting for change".format(strCRID))
             dictPayload = {}
             strStatus = UpdateCR(strCRID,"/request-change",dictPayload)
-            SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
+            if strStatus != "unknown":
+              SendNotification("{} updated, current status: {}".format(strCRID,strStatus))
           else:
             LogEntry("{} has a status of {} start:{} end:{} no case for that".format(strCRID,strStatus,
               formatUnixDate(iPlannedStart),formatUnixDate(iPlannedEnd)))
@@ -438,6 +443,7 @@ def UpdateCR (strCRNum,strAction,dictBody):
   strMethod = "put"
   strAPIFunction = "itsm/change/v2/"
   dictCRHeader = {}
+  strErrMsg = ""
   strStatus = "unknown"
   dictCRHeader["user-id"] = strTicketOwner
   dictCRHeader["Accept"] = "application/json"
@@ -446,12 +452,38 @@ def UpdateCR (strCRNum,strAction,dictBody):
   strURL = strITSMURL + strAPIFunction+strCRNum+strAction
   dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
   if dictReturn["code"] != 200:
-    strCode = dictReturn["code"]
+    # strCode = dictReturn["code"]
     if "Text" in dictReturn:
       strText = dictReturn["Text"]
     else:
-      strText = "No Text"
-    LogEntry ("HTTP Error {}: {}".format(strCode,strText))
+      strText = "No details available"
+    if "json" in dictReturn:
+      if "data" in dictReturn["json"]:
+        if "errors" in dictReturn["json"]["data"]:
+          if isinstance(dictReturn["json"]["data"]["errors"],list):
+            for dictError in dictReturn["json"]["data"]["errors"]:
+              if "field" in dictError:
+                strFields = dictError["field"]
+              else:
+                strFields = "unknown"
+              if "message" in dictError:
+                strMessage = dictError["message"]
+              else:
+                strMessage = "error no message"
+              strErrMsg += "{} : {}\n".format(strFields,strMessage)
+          else:
+            LogEntry("Data Errors is not a list, don't know how to parse that. Here is what I got: {}".format(strText))
+            strErrMsg = "Unknown Error details, please check logs"
+        else:
+          LogEntry("No errors collection, no idea where the error is. Here is what I got: {}".format(strText))
+          strErrMsg = "Unknown Error details, please check logs"
+      else:
+        LogEntry("No data collection, no idea where the error is. Here is what I got: {}".format(strText))
+        strErrMsg = "Unknown Error details, please check logs"
+    else:
+      LogEntry("No json collection, no idea where the error is. Here is what I got: {}".format(strText))
+      strErrMsg = "Unknown Error details, please check logs"
+    SendNotification("Update Failed: {}".format(strErrMsg))
   else:
     dictJSONResult = dictReturn["json"]
     if "data" in dictJSONResult:
