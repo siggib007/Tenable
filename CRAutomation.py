@@ -124,7 +124,7 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  LogEntry ("Trying to send notification for: {} ".format(strMsg))
+  LogEntry ("{}".format(strMsg))
   if not bNotifyEnabled:
     LogEntry ("notify not enabled")
     return
@@ -147,9 +147,9 @@ def SendNotification (strMsg):
     if isinstance(dictResponse,dict):
       if "ok" in dictResponse:
         bStatus = dictResponse["ok"]
-        LogEntry ("Successfully sent slack notification\n{} ".format(strMsg))
+        LogEntry ("Successfully sent slack notification")
     if not bStatus or WebRequest.status_code != 200:
-      LogEntry ("Problme: Status Code:[] API Response OK={}")
+      LogEntry ("Problem: Status Code:[] API Response OK={}")
       LogEntry (WebRequest.text)
 
 def CleanExit(strCause):
@@ -162,8 +162,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print (strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
-    CleanExit("")
+    CleanExit("{}".format (strMsg[:99]))
 
 def isInt (CheckValue):
   if isinstance(CheckValue,int):
@@ -438,7 +437,7 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
       SendNotification ("No data element returned when creating a CR, something is broken")      
   return strCRNum
 
-def ErrorParse(dictReturn):
+def ErrorParse400(dictReturn):
   strErrMsg = ""
   # strCode = dictReturn["code"]
   if "Text" in dictReturn:
@@ -472,7 +471,27 @@ def ErrorParse(dictReturn):
     LogEntry("No json collection, no idea where the error is. Here is what I got: {}".format(strText))
     strErrMsg = "Unknown Error details, please check logs"
   return strErrMsg
-    
+
+def ErrorParse504(dictReturn):
+  strErrMsg = ""
+  # strCode = dictReturn["code"]
+  if "Text" in dictReturn:
+    strText = dictReturn["Text"]
+  else:
+    strText = "No details available"
+  if "json" in dictReturn:
+    if "fault" in dictReturn["json"]:
+      if "faultstring" in dictReturn["json"]["fault"]:
+        strErrMsg = dictReturn["json"]["fault"]["faultstring"]
+        LogEntry("HTTP 504 occured, sending notification with faultstring. Here is full detail: {}".format(strText))
+      else:
+        LogEntry("There is a fault but no faultstring. Here is what we got back: {}".format(strText))
+    else:
+      LogEntry("HTTP 504 occured, no fault called out in response. Here is what we got back: {}".format(strText))
+  else:
+    LogEntry("HTTP 504 occured, json not parsed. Here is what we got back: {}".format(strText))
+
+  return strErrMsg
 
 def UpdateCR (strCRNum,strAction,dictBody):
   LogEntry("Going to update {} with {} and body of {}".format(strCRNum,strAction,dictBody))
@@ -487,7 +506,13 @@ def UpdateCR (strCRNum,strAction,dictBody):
   strURL = strITSMURL + strAPIFunction+strCRNum+strAction
   dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
   if dictReturn["code"] != 200:
-    strErrMsg = ErrorParse(dictReturn)
+    if dictReturn["code"] == 400:
+      strErrMsg = ErrorParse400(dictReturn)
+    elif dictReturn["code"] == 504:
+      strErrMsg = ErrorParse504(dictReturn)
+    else:
+      LogEntry("Unexpected reponse: {}".format(dictReturn["Text"]))
+      strErrMsg = "Unexpected Error, please check logs"
     SendNotification("Update to {} Failed: {}".format(strCRNum,strErrMsg))
   else:
     dictJSONResult = dictReturn["json"]
