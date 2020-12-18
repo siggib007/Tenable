@@ -191,6 +191,8 @@ def MakeAPICall (strURL, strHeader, strMethod, dictPayload="", strUserName="", s
   global tLastCall
   global iTotalSleep
 
+  dictReturn = {}
+
   fTemp = time.time()
   fDelta = fTemp - tLastCall
   # LogEntry ("It's been {} seconds since last API call".format(fDelta))
@@ -202,8 +204,6 @@ def MakeAPICall (strURL, strHeader, strMethod, dictPayload="", strUserName="", s
     # LogEntry ("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
-  iErrCode = ""
-  iErrText = ""
   WebRequest = None
 
   if strUserName == "" or strPWD == "":
@@ -245,34 +245,31 @@ def MakeAPICall (strURL, strHeader, strMethod, dictPayload="", strUserName="", s
         else:
           WebRequest = requests.put(strURL, headers=strHeader, verify=False, auth=(strUserName, strPWD))
         # LogEntry ("post executed")
-
   except Exception as err:
     LogEntry ("Issue with API call. {}".format(err))
     CleanExit ("due to issue with API, please check the logs")
 
   if WebRequest is None:
     LogEntry ("response is none type",True)
-    iErrCode = "NoneType"
-    iErrText = "response is none type"
+    dictReturn["code"] = "NoneType"
+    dictReturn["Text"] = "response is none type"
+    return dictReturn
 
   if isinstance(WebRequest,requests.models.Response)==False:
     LogEntry ("response is unknown type")
-    iErrCode = "ResponseErr"
-    iErrText = "response is unknown type"
+    dictReturn["code"] = "ResponseErr"
+    dictReturn["Text"] = "response is unknown type"
+    return dictReturn
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
-  if WebRequest.status_code != 200:
-    # LogEntry (WebRequest.text)
-    iErrCode = WebRequest.status_code
-    iErrText = WebRequest.text
 
-  if iErrCode != "" or WebRequest.status_code !=200:
-    return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
-  else:
-    try:
-      return WebRequest.json()
-    except Exception as err:
-      LogEntry ("Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99]))
+  dictReturn["code"] = WebRequest.status_code
+  dictReturn["Text"] = WebRequest.text
+  try:
+    dictReturn["json"] = WebRequest.json()
+  except Exception as err:
+    LogEntry ("Issue with converting response to json. Error:{}".format(err))
+  return dictReturn
 
 def CleanStr(strOld):
   strTemp = strOld.replace('"','')
@@ -293,13 +290,14 @@ def StartStop(strCrit):
   dictCRHeader["Authorization"] = "Bearer " + strAccessToken
   dictPayload["query"] = strCrit
   strURL = strITSMURL + strAPIFunction
-  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
-  if isinstance(APIResponse,str):
-    SendNotification ("Unexpected API Response while searching for {}: {} ".format(strCrit,APIResponse))
-  elif isinstance(APIResponse,dict):
-    if "data" in APIResponse:
-      if isinstance(APIResponse["data"],list):
-        for dictData in APIResponse["data"]:
+  dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  if dictReturn["code"] != 200:
+    LogEntry ("HTTP Error {}: {}".format(dictReturn["code"],dictReturn["Text"]))
+  else:
+    dictJSONResult = dictReturn["json"]
+    if "data" in dictJSONResult:
+      if isinstance(dictJSONResult["data"],list):
+        for dictData in dictJSONResult["data"]:
           if "crid" in dictData:
             strCRID = "CR" + str(dictData["crid"])
           else:
@@ -367,8 +365,6 @@ def StartStop(strCrit):
         LogEntry("Data element in response not a list, why ???",True)
     else:
       LogEntry("No Data element in reponse, WTF???",True)
-  else:
-    SendNotification ("API response was type {} which is totally unexpected")
 
 def FetchNewVer ():
   dictPayload = {}
@@ -377,14 +373,18 @@ def FetchNewVer ():
   strAPIFunction = "downloads/api/v2/pages/nessus-agents"
   strURL = strBaseURL + strAPIFunction
   LogEntry("Pulling a list of existing Nessus Agent releases")
-  APIResponse = MakeAPICall(strURL,strTNBLHeader,strMethod, dictPayload)
-  if "releases" in APIResponse:
-    if "latest" in APIResponse["releases"]:
-      for strKey in APIResponse["releases"]["latest"].keys():
+  dictReturn = MakeAPICall(strURL,strTNBLHeader,strMethod, dictPayload)
+  if dictReturn["code"] != 200:
+    LogEntry ("HTTP Error {}: {}".format(dictReturn["code"],dictReturn["Text"]))
+  else:
+    dictJSONResult = dictReturn["json"]
+  if "releases" in dictJSONResult:
+    if "latest" in dictJSONResult["releases"]:
+      for strKey in dictJSONResult["releases"]["latest"].keys():
         if strKey[:13] == "Nessus Agents":
-          if isinstance(APIResponse["releases"]["latest"][strKey],list):
-            dictResult["NewVer"] = APIResponse["releases"]["latest"][strKey][0]["version"]
-            dictResult["ReleaseDT"] = APIResponse["releases"]["latest"][strKey][0]["product_release_date"]
+          if isinstance(dictJSONResult["releases"]["latest"][strKey],list):
+            dictResult["NewVer"] = dictJSONResult["releases"]["latest"][strKey][0]["version"]
+            dictResult["ReleaseDT"] = dictJSONResult["releases"]["latest"][strKey][0]["product_release_date"]
             LogEntry ("Latest Version is {} with release date of {} ".format(dictResult["NewVer"],dictResult["ReleaseDT"]))
             break
           else:
@@ -392,7 +392,7 @@ def FetchNewVer ():
     else:
       LogEntry ("No latest branch in the release list, can't deal",True)
   else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+    LogEntry ("Unepxected results: {}".format(dictJSONResult),True)
   return dictResult
 
 def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
@@ -401,6 +401,7 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
   dtStop = dtStart+datetime.timedelta(days=iDuration)
   strStartDT = dtStart.isoformat()+"Z"
   strStopDT = dtStop.isoformat()+"Z"
+  strCRNum = ""
   strMethod = "post"
   strAPIFunction = "itsm/change/v2/create/"
   dictCRHeader = {}
@@ -417,21 +418,19 @@ def CreateCR (strNewVersion,strReleaseDT,iDeltaStart,iDuration):
         "Upgrading to Version is {} with release date of {}").format(strNewVersion,strReleaseDT)
   strURL = strITSMURL + strAPIFunction+strActivity
   LogEntry("Submitting Ticket creation")
-  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
-  strCRNum = ""
-  if isinstance(APIResponse,str):
-    SendNotification ("Unexpected API Response while creating a CR: {} ".format(APIResponse))
-  elif isinstance(APIResponse,dict):
-    if "data" in APIResponse:
-      if "cRID" in APIResponse["data"][0]:
-        strCRNum = APIResponse["data"][0]["cRID"]
+  dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictPayload)
+  if dictReturn["code"] != 200:
+    LogEntry ("HTTP Error {}: {}".format(dictReturn["code"],dictReturn["Text"]))
+  else:
+    dictJSONResult = dictReturn["json"]
+    if "data" in dictJSONResult:
+      if "cRID" in dictJSONResult["data"][0]:
+        strCRNum = dictJSONResult["data"][0]["cRID"]
         LogEntry("Created {}".format(strCRNum))
       else:
         SendNotification("CR possible created but no CR number returned")
     else:
       SendNotification ("No data element returned when creating a CR, something is broken")      
-  else:
-    SendNotification ("API response was type {} which is totally unexpected")
   return strCRNum
 
 def UpdateCR (strCRNum,strAction,dictBody):
@@ -445,21 +444,25 @@ def UpdateCR (strCRNum,strAction,dictBody):
   dictCRHeader["Content-Type"] = "application/json"
   dictCRHeader["Authorization"] = "Bearer " + strAccessToken
   strURL = strITSMURL + strAPIFunction+strCRNum+strAction
-  APIResponse = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
-  if isinstance(APIResponse,str):
-    SendNotification ("Unexpected API Response while updating CR: {} ".format(APIResponse))
-  elif isinstance(APIResponse,dict):
-    if "data" in APIResponse:
-      if "status" in APIResponse["data"][0]:
-        strStatus = APIResponse["data"][0]["status"]
+  dictReturn = MakeAPICall(strURL,dictCRHeader,strMethod, dictBody)
+  if dictReturn["code"] != 200:
+    strCode = dictReturn["code"]
+    if "Text" in dictReturn:
+      strText = dictReturn["Text"]
+    else:
+      strText = "No Text"
+    LogEntry ("HTTP Error {}: {}".format(strCode,strText))
+  else:
+    dictJSONResult = dictReturn["json"]
+    if "data" in dictJSONResult:
+      if "status" in dictJSONResult["data"][0]:
+        strStatus = dictJSONResult["data"][0]["status"]
         LogEntry("CR {} updated, status {}".format(strCRNum,strStatus))
       else:
         strStatus = "No Status available"
         SendNotification("CR possible updated but no status returned")
     else:
       SendNotification ("No data element returned when creating a CR, something is broken")      
-  else:
-    SendNotification ("API response was type {} which is totally unexpected")
   return strStatus
 
 def main():
@@ -650,11 +653,16 @@ def main():
   strCRHeader = ""
   strURL = strITSMURL + strAPIFunction
   LogEntry("Fetching OAuth Token")
-  APIResponse = MakeAPICall(strURL,strCRHeader,strMethod, dictPayload,strClientID,strSecret)
-  if "access_token" in APIResponse:
-    strAccessToken = APIResponse["access_token"]
+  dictReturn = MakeAPICall(strURL,strCRHeader,strMethod, dictPayload,strClientID,strSecret)
+  if dictReturn["code"] != 200:
+    LogEntry ("HTTP Error {}: {}".format(dictReturn["code"],dictReturn["Text"]))
   else:
-    LogEntry ("failed to fetch token, here is what I got back {} ".format(APIResponse),True)
+    dictJSONResult = dictReturn["json"]
+
+  if "access_token" in dictJSONResult:
+    strAccessToken = dictJSONResult["access_token"]
+  else:
+    LogEntry ("failed to fetch token, here is what I got back {} ".format(dictJSONResult),True)
 
   # Pulling list of tickets to start or stop
   StartStop("(createdBy = '{}' AND status != 'Closed') ".format(strTicketOwner))
