@@ -727,7 +727,7 @@ def main():
     LogEntry ("failed to fetch token, here is what I got back {} ".format(dictJSONResult),True)
 
   # Pulling list of tickets to start or stop
-  StartStop("(createdBy = '{}' AND status != 'Closed') ".format(strTicketOwner))
+  StartStop("(createdBy = '{}' AND status != 'Closed' AND activity = 'Vulnerability Management - Agent Update') ".format(strTicketOwner))
 
   # Check for new version
   dictPayload = {}
