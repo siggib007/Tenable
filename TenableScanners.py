@@ -506,8 +506,8 @@ def ScannerDBUpdate(dictResults,dbConn):
               strNetName = "'{}'".format(DBClean(dictScan["network_name"]))
             else:
               strNetName = "NULL"
-            if strNetName == "Default":
-              strNetName = "Magenta"
+            if strNetName == "'Default'":
+              strNetName = "'Magenta'"
             strLocation = "'{}'".format(strLocation)
             strSQL = "select * from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
             lstReturn = SQLQuery (strSQL,dbConn)
@@ -537,7 +537,7 @@ def ScannerDBUpdate(dictResults,dbConn):
                 " WHERE iScannerID = {};".format(strCreateddt, strDistro, strLastConnDT,
                   strLastModDT, strPluginSet, strScannerName, strPlatform, strType, strUIBuild,
                   strUIVersion, strUUID, strRemoteUUID, strStatus, iServerID, iAltServerID,
-                  strAltSource, strScanIP, strIPList, strScanType, strLocation, iScannerID,strNetName))
+                  strAltSource, strScanIP, strIPList, strScanType, strLocation, strNetName, iScannerID))
             else:
               LogEntry ("Something is horrible wrong,"
                 " there are {} scanners with id of {}".format(lstReturn[0],iScannerID),True)
@@ -820,7 +820,7 @@ def main():
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds. "
     "Of which {4} seconds was spent sleeping due to API backoff protocol.".format(iElapseSec,iHours,iMin,iSec,iTotalSleep))
 
-  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
 if __name__ == '__main__':
