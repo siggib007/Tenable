@@ -302,6 +302,8 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 def ScannerDBUpdate(dictResults,dbConn):
 
   lstInvalidTypes = []
+  dictStatusChange = {}
+  dictStatusOff = {}
   if "scanners" in dictResults:
     if isinstance(dictResults["scanners"],list):
       for dictScan in dictResults["scanners"]:
@@ -509,7 +511,7 @@ def ScannerDBUpdate(dictResults,dbConn):
             if strNetName == "'Default'":
               strNetName = "'Magenta'"
             strLocation = "'{}'".format(strLocation)
-            strSQL = "select * from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
+            strSQL = "select vcStatus from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
             lstReturn = SQLQuery (strSQL,dbConn)
             if not ValidReturn(lstReturn):
               LogEntry ("Unexpected: {}".format(lstReturn))
@@ -528,6 +530,11 @@ def ScannerDBUpdate(dictResults,dbConn):
                   strScanIP, strIPList, strScanType, strLocation, strNetName))
             elif lstReturn[0] == 1:
               LogEntry ("Scanner {} exists, need to update it".format(strScannerName))
+              strOldStatus = lstReturn[1][0][0]
+              if strOldStatus != strStatus[1:-1]:
+                dictStatusChange[strScannerName[1:-1]] = strStatus[1:-1]
+              if strStatus[1:-1] == "off":
+                dictStatusOff[strScannerName[1:-1]] = strLastConnDT[1:-1]
               strSQL = ("UPDATE tblTNBLscanners SET dtCreated = {}, vcDistro = {},"
                 " dtLastConnect = {}, dtLastModified = {}, vcPluginSet = {},"
                 " vcName = {}, vcPlatform = {}, vcType = {}, vcUIbuild = {},"
@@ -559,6 +566,17 @@ def ScannerDBUpdate(dictResults,dbConn):
   if len(lstInvalidTypes) > 0:
     SendNotification("There were {} scanners that could not be put into groups, "
       " please check logs for details.".format(len(lstInvalidTypes)))
+  if len(dictStatusChange) > 0:
+    strNotify = "{} Scanners changed status since last time:\n".format(len(dictStatusChange))
+    for strTemp in dictStatusChange:
+      strNotify += "{} New status: {}\n".format(strTemp,dictStatusChange[strTemp])
+    SendNotification(strNotify)
+  if len(dictStatusOff) > 0:
+    strNotify = "{}  Scanners are currently in off state:\n".format(len(dictStatusOff))
+    for strTemp in dictStatusOff:
+      strNotify += "{} Last connected: {}\n".format(strTemp,dictStatusOff[strTemp])
+    SendNotification(strNotify)
+
   return lstInvalidTypes
 
 def ScanGroupDBUpdate(dictResults, dbConn):
