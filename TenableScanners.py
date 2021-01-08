@@ -21,10 +21,13 @@ import pymysql
 #avoid insecure warning
 requests.urllib3.disable_warnings()
 
-#Define few things
+#Define few defaults
 iTimeOut = 120
+iSlackLimit = 950
 iMinQuiet = 2 # Minimum time in seconds between API calls
 ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
+
+#Initialize couple of variables
 tLastCall = None
 iTotalSleep = None
 
@@ -38,7 +41,7 @@ def SendNotification (strMsg):
   dictNotify = {}
   dictNotify["token"] = dictConfig["NotifyToken"]
   dictNotify["channel"] = dictConfig["NotifyChannel"]
-  dictNotify["text"]=strMsg[:199]
+  dictNotify["text"]=strMsg[:iSlackLimit]
   strNotifyParams = urlparse.urlencode(dictNotify)
   strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
   bStatus = False
@@ -774,6 +777,12 @@ def main():
       iTimeOut = int(dictConfig["TimeOut"])
     else:
       LogEntry("Invalid timeout, setting to defaults of {}".format(iTimeOut))
+
+  if "TextLimit" in dictConfig:
+    if isInt(dictConfig["TextLimit"]):
+      iSlackLimit = int(dictConfig["TextLimit"])
+    else:
+      LogEntry("Invalid timeout, setting to defaults of {}".format(iSlackLimit))
 
   if "SecondsBeetweenChecks" in dictConfig:
     if isInt(dictConfig["SecondsBeetweenChecks"]):
