@@ -726,7 +726,6 @@ def main():
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
   dictPayload = {}
-  strScriptHost = platform.node().upper()
 
 
   print ("This is a script to download a list of all Tenable scanners information via API. This is running under Python Version {}".format(strVersion))
@@ -740,6 +739,12 @@ def main():
   iTotalSleep = 0
   tStart=time.time()
   dictConfig = processConf(strConf_File)
+  
+  strScriptHost = platform.node().upper()
+  if strScriptHost in dictConfig:
+    strScriptHost = dictConfig[strScriptHost]
+
+  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
 
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
