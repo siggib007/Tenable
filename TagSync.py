@@ -89,7 +89,8 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  if True:
+  if not bNotifyEnabled:
+    LogEntry ("notify not enabled")
     return
   global strNotifyURL
   global strNotifyToken

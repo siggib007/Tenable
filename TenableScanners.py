@@ -696,6 +696,7 @@ def main():
   global strBaseURL
   global strBaseDir
   global dictConfig
+  global iSlackLimit
 
   strFormat = "%Y-%m-%dT%H:%M:%S"
   bNotifyEnabled = False
@@ -787,7 +788,7 @@ def main():
     if isInt(dictConfig["TextLimit"]):
       iSlackLimit = int(dictConfig["TextLimit"])
     else:
-      LogEntry("Invalid timeout, setting to defaults of {}".format(iSlackLimit))
+      LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
 
   if "SecondsBeetweenChecks" in dictConfig:
     if isInt(dictConfig["SecondsBeetweenChecks"]):
