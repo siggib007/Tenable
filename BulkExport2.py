@@ -457,7 +457,6 @@ def main():
   iLoc = strScriptName.rfind(".")
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
-  strScriptHost = platform.node().upper()
 
   print ("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
   print ("Running from: {}".format(strRealPath))
@@ -468,7 +467,11 @@ def main():
   objLogOut = open(strLogFile,"w",1)
   
   dictConfig = processConf(strConf_File)
-
+  strScriptHost = platform.node().upper()
+  if strScriptHost in dictConfig:
+    strScriptHost = dictConfig[strScriptHost]
+  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
+  
   if "Filter" in dictConfig:
     lstStrParts = dictConfig["Filter"].split(":")
     for strFilter in lstStrParts:
