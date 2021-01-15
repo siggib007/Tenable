@@ -31,6 +31,8 @@ iMaxRetry = 5 # Maximum number of times to retry an error
 iTotalSleep = 0
 tLastCall = 0
 iErrCount = 0
+lstSysArg = sys.argv
+iSysArgLen = len(lstSysArg)
 
 def processConf(strConf_File):
 
@@ -443,8 +445,13 @@ def main():
   if strOutDir[-1:] != "/":
     strOutDir += "/"
   
-  iLoc = sys.argv[0].rfind(".")
-  strConf_File = sys.argv[0][:iLoc] + ".ini"
+  if iSysArgLen > 1:
+    strConf_File = lstSysArg[1]
+    LogEntry("Argument provided, setting conf file to: {}".format(strConf_File))
+  else:
+    iLoc = lstSysArg[0].rfind(".")
+    strConf_File = lstSysArg[0][:iLoc] + ".ini"
+    LogEntry("No Argument found, setting conf file to: {}".format(strConf_File))
 
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
