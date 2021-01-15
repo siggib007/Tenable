@@ -42,7 +42,8 @@ def processConf(strConf_File):
   else:
     LogEntry ("Can't find configuration file {}, make sure it is the same directory "
       "as this script and named the same with ini extension".format(strConf_File))
-    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost),True)
+    objLogOut.close()
+    sys.exit(9)
 
   strLine = "  "
   dictConfig = {}
@@ -91,16 +92,14 @@ def processConf(strConf_File):
 
 def SendNotification (strMsg):
   if not bNotifyEnabled:
+    LogEntry ("Notification not enabled")
     return
-  global strNotifyURL
-  global strNotifyToken
-  global strNotifyChannel
   dictNotify = {}
-  dictNotify["token"] = strNotifyToken
-  dictNotify["channel"] = strNotifyChannel
-  dictNotify["text"]=strMsg[:199]
+  dictNotify["token"] = dictConfig["NotifyToken"]
+  dictNotify["channel"] = dictConfig["NotifyChannel"]
+  dictNotify["text"]=strMsg[:iSlackLimit]
   strNotifyParams = urlparse.urlencode(dictNotify)
-  strURL = strNotifyURL + "?" + strNotifyParams
+  strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
   bStatus = False
   try:
     WebRequest = requests.get(strURL,timeout=iTimeOut)
@@ -341,7 +340,11 @@ def BulkExport(strFunction,strExportUUID):
                   strTotalChunks = dictValue["total_chunks"]
                 else:
                   LogEntry ("Total Chunks not available, trying again")
+                if strTotalChunks == 0:
+                  strTotalChunks = "n/a"
+                  LogEntry ("Total Chunks is zero, trying again.")
                 break
+                
   LogEntry("Total Chunks: {}".format(strTotalChunks))
   strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
   while strStatus == "PROCESSING":
@@ -417,6 +420,7 @@ def main():
   global objCSVOut
   global iMaxRetry
   global dictProxies
+  global iSlackLimit
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -445,14 +449,6 @@ def main():
   if strOutDir[-1:] != "/":
     strOutDir += "/"
   
-  if iSysArgLen > 1:
-    strConf_File = lstSysArg[1]
-    LogEntry("Argument provided, setting conf file to: {}".format(strConf_File))
-  else:
-    iLoc = lstSysArg[0].rfind(".")
-    strConf_File = lstSysArg[0][:iLoc] + ".ini"
-    LogEntry("No Argument found, setting conf file to: {}".format(strConf_File))
-
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
     print ("Path '{0}' for log files didn't exists, so I create it!".format(strLogDir))
@@ -472,9 +468,36 @@ def main():
   print ("Logs saved to {}".format(strLogFile))
   print ("Output files saved to {}".format(strOutDir))
   objLogOut = open(strLogFile,"w",1)
+  iConfLoc = 0
+  iUUIDLoc = 0
+  iPos = 0
   
-  dictConfig = processConf(strConf_File)
+  if iSysArgLen > 1:
+    for strArg in lstSysArg:
+      if iPos == 0:
+        iPos += 1
+        # LogEntry ("skipping first strArg")
+        continue
+      if strArg[-4:] == ".ini":
+        iConfLoc = iPos
+        LogEntry ("Found configuration file in command arguments pos {}".format(iPos))
+      elif "-" in strArg:
+        iUUIDLoc = iPos
+        LogEntry ("Found UUID in command line arugment pos {}".format(iPos))
+      else:
+        LogEntry ("unknown argument {} in pos {}. Expect either UUID like e1e742b0-b10c-4f58-931e-568327d62291" 
+                  "or configuration file with .ini extension".format(strArg,iPos))
+      iPos += 1
+  if iConfLoc > 0:
+    strConf_File = lstSysArg[iConfLoc]
+    LogEntry("Argument provided, setting conf file to: {}".format(strConf_File))
+  else:
+    iLoc = lstSysArg[0].rfind(".")
+    strConf_File = lstSysArg[0][:iLoc] + ".ini"
+    LogEntry("No Argument found, setting conf file to: {}".format(strConf_File))
+
   strScriptHost = platform.node().upper()
+  dictConfig = processConf(strConf_File)
   if strScriptHost in dictConfig:
     strScriptHost = dictConfig[strScriptHost]
   LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
@@ -512,6 +535,12 @@ def main():
     bNotifyEnabled = False
     LogEntry("Missing configuration items for Slack notifications, "
       "turning slack notifications off")
+
+  if "TextLimit" in dictConfig:
+    if isInt(dictConfig["TextLimit"]):
+      iSlackLimit = int(dictConfig["TextLimit"])
+    else:
+      LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
 
   if "APIBaseURL" in dictConfig:
     strBaseURL = dictConfig["APIBaseURL"]
@@ -607,12 +636,13 @@ def main():
     dictPayload["chunk_size"] = iChunkSize
   dictPayload["filters"] = dictFilter
 
-  if len(sys.argv) > 1:
-    strExportUUID = sys.argv[1]
+  if iUUIDLoc > 0:
+    strExportUUID = sys.argv[iUUIDLoc]
     LogEntry ("UUID {} provided as an arg".format(strExportUUID))
   else:
     strExportUUID = ""
 
+  # SendNotification ("Starting {} on {}".format(strScriptName, strScriptHost))
   dictResults={}
   dictResults = BulkExport (strExportType,strExportUUID)
   objFileOut.write("]")
