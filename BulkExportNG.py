@@ -262,35 +262,95 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for dictChunkItem in APIResponse:
-        if "id" in dictChunkItem:
-          strAssetID = CSVClean(dictChunkItem["id"],50) 
-        else:
-          strAssetID = ""
-        if "ipv4s" in dictChunkItem:
-          strIPv4 = CSVClean (" | ".join(dictChunkItem["ipv4s"]),990)
-        else:
-          strIPv4 = ""
-        if "ipv6s" in dictChunkItem:
-          strIPv6 = CSVClean (" | ".join(dictChunkItem["ipv6s"]),990)
-        else:
-          strIPv6 = ""
-        if "fqdns" in dictChunkItem:
-          strFQDNs = CSVClean (" | ".join(dictChunkItem["fqdns"]),990)
-        else:
-          strFQDNs = ""
-        if "netbios_names" in dictChunkItem:
-          strNetBIOS = CSVClean (" | ".join(dictChunkItem["netbios_names"]),990)
-        else:
-          strNetBIOS = ""
-        if "operating_systems" in dictChunkItem:
-          strOS = CSVClean (" | ".join(dictChunkItem["operating_systems"]),990)
-        else:
-          strOS = ""
-        if "hostnames" in dictChunkItem:
-          strHostName = CSVClean (" | ".join(dictChunkItem["hostnames"]),990)
-        else:
-          strHostName = ""
-        objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
+        if strFunction == "assets":
+          if "id" in dictChunkItem:
+            strAssetID = CSVClean(dictChunkItem["id"],50) 
+          else:
+            strAssetID = ""
+          if "ipv4s" in dictChunkItem:
+            strIPv4 = CSVClean (" | ".join(dictChunkItem["ipv4s"]),990)
+          else:
+            strIPv4 = ""
+          if "ipv6s" in dictChunkItem:
+            strIPv6 = CSVClean (" | ".join(dictChunkItem["ipv6s"]),990)
+          else:
+            strIPv6 = ""
+          if "fqdns" in dictChunkItem:
+            strFQDNs = CSVClean (" | ".join(dictChunkItem["fqdns"]),990)
+          else:
+            strFQDNs = ""
+          if "netbios_names" in dictChunkItem:
+            strNetBIOS = CSVClean (" | ".join(dictChunkItem["netbios_names"]),990)
+          else:
+            strNetBIOS = ""
+          if "operating_systems" in dictChunkItem:
+            strOS = CSVClean (" | ".join(dictChunkItem["operating_systems"]),990)
+          else:
+            strOS = ""
+          if "hostnames" in dictChunkItem:
+            strHostName = CSVClean (" | ".join(dictChunkItem["hostnames"]),990)
+          else:
+            strHostName = ""
+          objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
+        if strFunction == "vulns":
+          if "asset" in dictChunkItem:
+            if "uuid" in dictChunkItem["asset"]:
+              strAssetID = CSVClean(dictChunkItem["asset"]["uuid"],50) 
+            else:
+              strAssetID = ""
+            if "ipv4" in dictChunkItem["asset"]:
+              strIPv4 = CSVClean (dictChunkItem["asset"]["ipv4"],990)
+            else:
+              strIPv4 = ""
+            if "fqdns" in dictChunkItem["asset"]:
+              strFQDN = CSVClean (dictChunkItem["asset"]["fqdns"],990)
+            else:
+              strFQDN = ""
+            if "netbios_name" in dictChunkItem["asset"]:
+              strNetBIOS = CSVClean (dictChunkItem["asset"]["netbios_name"],990)
+            else:
+              strNetBIOS = ""
+            if "operating_system" in dictChunkItem["asset"]:
+              strOS = CSVClean (" | ".join(dictChunkItem["asset"]["operating_system"]),990)
+            else:
+              strOS = ""
+            if "hostname" in dictChunkItem["asset"]:
+              strHostName = CSVClean (dictChunkItem["asset"]["hostname"],990)
+            else:
+              strHostName = ""
+            if "network_id" in dictChunkItem["asset"]:
+              strNetworkID = dictChunkItem["asset"]["network_id"]
+              if strNetworkID == "00000000-0000-0000-0000-000000000000":
+                strNetworkName = "Magenta"
+              elif strNetworkID == "99357713-57a9-47dc-8689-3ad618444aab":
+                strNetworkName = "Sprint"
+              else:
+                strNetworkName = "Unknown NetworkID {}".format(strNetworkID)
+            else:
+              strNetworkName = ""
+            objCSVOut.write("{},{},{},{},{},{},{},".format(strAssetID,strHostName,strFQDN,strNetBIOS,strIPv4,strNetworkName,strOS))
+          if "plugin" in dictChunkItem:
+            if "id" in dictChunkItem["plugin"]:
+              strPluginID = CSVClean(str(dictChunkItem["plugin"]["id"]),50) 
+            else:
+              strPluginID = ""
+            if "name" in dictChunkItem["plugin"]:
+              strPluginName = CSVClean (dictChunkItem["plugin"]["name"],990)
+            else:
+              strPluginName = ""
+            if "description" in dictChunkItem["plugin"]:
+              strDescr = CSVClean (dictChunkItem["plugin"]["description"],990)
+            else:
+              strDescr = ""
+            if "family" in dictChunkItem["plugin"]:
+              strFamilyName = CSVClean (dictChunkItem["plugin"]["family"],990)
+            else:
+              strFamilyName = ""
+            if "family_id" in dictChunkItem["plugin"]:
+              strFamilyID = CSVClean (str(dictChunkItem["family_id"]),990)
+            else:
+              strFamilyID = ""
+            objCSVOut.write("{},{},{},{},{}\n".format(strPluginID,strPluginName,strDescr,strFamilyName,strFamilyID))
 
 def BulkExport(strFunction,strExportUUID):
   global iRowCount
