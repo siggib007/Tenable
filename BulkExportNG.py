@@ -347,7 +347,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
             else:
               strFamilyName = ""
             if "family_id" in dictChunkItem["plugin"]:
-              strFamilyID = CSVClean (str(dictChunkItem["family_id"]),990)
+              strFamilyID = CSVClean (str(dictChunkItem["plugin"]["family_id"]),990)
             else:
               strFamilyID = ""
             objCSVOut.write("{},{},{},{},{}\n".format(strPluginID,strPluginName,strDescr,strFamilyName,strFamilyID))
