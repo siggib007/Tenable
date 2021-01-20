@@ -154,6 +154,7 @@ def CSVClean(strText,iLimit):
     strTemp = strTemp.decode("ascii", "ignore")
     strTemp = strTemp.replace(",", " ")
     strTemp = strTemp.replace("\n"," ")
+    strTemp = strTemp.replace("\r"," ")
     return strTemp[:iLimit]
 
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
@@ -303,8 +304,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
               strIPv4 = CSVClean (dictChunkItem["asset"]["ipv4"],990)
             else:
               strIPv4 = ""
-            if "fqdns" in dictChunkItem["asset"]:
-              strFQDN = CSVClean (dictChunkItem["asset"]["fqdns"],990)
+            if "fqdn" in dictChunkItem["asset"]:
+              strFQDN = CSVClean (dictChunkItem["asset"]["fqdn"],990)
             else:
               strFQDN = ""
             if "netbios_name" in dictChunkItem["asset"]:
