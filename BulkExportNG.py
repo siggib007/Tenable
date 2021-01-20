@@ -153,6 +153,7 @@ def CSVClean(strText,iLimit):
     strTemp = strText.encode("ascii", "ignore")
     strTemp = strTemp.decode("ascii", "ignore")
     strTemp = strTemp.replace(",", " ")
+    strTemp = strTemp.replace("\n"," ")
     return strTemp[:iLimit]
 
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
@@ -688,7 +689,7 @@ def main():
   iExtLoc = strRAWout.rfind(".")
   strCSVName = strRAWout[:iExtLoc] + ".csv"
   objCSVOut = open(strCSVName,"w",1)
-  objCSVOut.write("AssetID,HostName,DNS,NetBIOS,IPv4,IPv6,OS\n")
+  objCSVOut.write("AssetID,HostName,FQDN,NetBIOS,IPv4,Network,OS,PluginID,Plugin Name,Descr,Family Name,Family ID\n")
 
   if strExportType == "vulns":
     dictPayload["num_assets"] = iChunkSize
