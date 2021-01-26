@@ -150,7 +150,8 @@ def CSVClean(strText,iLimit):
   if strText is None:
     return ""
   else:
-    strTemp = strText.encode("ascii", "ignore")
+    strTemp = str(strText)
+    strTemp = strTemp.encode("ascii", "ignore")
     strTemp = strTemp.decode("ascii", "ignore")
     strTemp = strTemp.replace(",", " ")
     strTemp = strTemp.replace("\n"," ")
@@ -265,35 +266,21 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for dictChunkItem in APIResponse:
         if strFunction == "assets":
-          if "id" in dictChunkItem:
-            strAssetID = CSVClean(dictChunkItem["id"],50) 
-          else:
-            strAssetID = ""
-          if "ipv4s" in dictChunkItem:
-            strIPv4 = CSVClean (" | ".join(dictChunkItem["ipv4s"]),990)
-          else:
-            strIPv4 = ""
-          if "ipv6s" in dictChunkItem:
-            strIPv6 = CSVClean (" | ".join(dictChunkItem["ipv6s"]),990)
-          else:
-            strIPv6 = ""
-          if "fqdns" in dictChunkItem:
-            strFQDNs = CSVClean (" | ".join(dictChunkItem["fqdns"]),990)
-          else:
-            strFQDNs = ""
-          if "netbios_names" in dictChunkItem:
-            strNetBIOS = CSVClean (" | ".join(dictChunkItem["netbios_names"]),990)
-          else:
-            strNetBIOS = ""
-          if "operating_systems" in dictChunkItem:
-            strOS = CSVClean (" | ".join(dictChunkItem["operating_systems"]),990)
-          else:
-            strOS = ""
-          if "hostnames" in dictChunkItem:
-            strHostName = CSVClean (" | ".join(dictChunkItem["hostnames"]),990)
-          else:
-            strHostName = ""
-          objCSVOut.write("{},{},{},{},{},{},{}\n".format(strAssetID,strHostName,strFQDNs,strNetBIOS,strIPv4,strIPv6,strOS))
+          lstOutput = []
+          for strfield in lstAssetStrFields:
+            if strfield in dictChunkItem:
+              lstOutput.append(CSVClean(dictChunkItem[strfield],iAssetstrLimit))
+            else:
+              lstOutput.append("No such field "+strfield)
+          for strfield in lstAssetListFields:
+            if strfield in dictChunkItem:
+              lstOutput.append(CSVClean(" | ".join(dictChunkItem[strfield]),iAssetListLimit))
+            else:
+              lstOutput.append("No such field "+strfield)
+
+          strLineOut = ",".join(lstOutput)
+          objCSVOut.write(strLineOut+"\n")
+
         if strFunction == "vulns":
           if "asset" in dictChunkItem:
             if "uuid" in dictChunkItem["asset"]:
@@ -483,6 +470,10 @@ def main():
   global iMaxRetry
   global dictProxies
   global iSlackLimit
+  global lstAssetListFields
+  global lstAssetStrFields
+  global iAssetstrLimit
+  global iAssetListLimit
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -565,9 +556,9 @@ def main():
   LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
   
   if "Filter" in dictConfig:
-    lstStrParts = dictConfig["Filter"].split(":")
+    lstStrParts = dictConfig["Filter"].split("|")
     for strFilter in lstStrParts:
-      lstFilterParts = strFilter.split("|")
+      lstFilterParts = strFilter.split(":")
       if len(lstFilterParts) > 1:
         if isInt(lstFilterParts[1]):
           dictFilter[lstFilterParts[0]] = int(lstFilterParts[1])
@@ -641,13 +632,13 @@ def main():
     if isInt(dictConfig["BatchSize"]):
       iChunkSize = int(dictConfig["BatchSize"])
     else:
-      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iChunkSize))
+      LogEntry("Invalid BatchSize, setting to defaults of {}".format(iChunkSize))
 
   if "MaxError" in dictConfig:
     if isInt(dictConfig["MaxError"]):
       iMaxRetry = int(dictConfig["MaxError"])
     else:
-      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMaxRetry))
+      LogEntry("Invalid MaxError, setting to defaults of {}".format(iMaxRetry))
 
   if "UpdatedDays" in dictConfig:
     LogEntry("Found Update Days")
@@ -671,6 +662,42 @@ def main():
   else:
     dictProxies = {}
 
+
+  if "AssetListFields" in dictConfig:
+    lstAssetListFields = dictConfig["AssetListFields"].split(",")
+  else:
+    lstAssetListFields = []
+
+  if "AssetStrFields" in dictConfig:
+    lstAssetStrFields = dictConfig["AssetStrFields"].split(",")
+  else:
+    lstAssetStrFields = []
+
+  if "CSVColumnHead" in dictConfig:
+    strCSVHead = dictConfig["CSVColumnHead"]
+  else:
+    strCSVHead = "{},{}".format(",".join(lstAssetStrFields),",".join(lstAssetListFields))
+
+  if "AssetStrLimit" in dictConfig:
+    if isInt(dictConfig["AssetStrLimit"]):
+      iAssetstrLimit = int(dictConfig["AssetStrLimit"])
+    else:
+      LogEntry("Invalid AssetStrLimit, setting to defaults of 50")
+      iAssetstrLimit = 50
+  else:
+    LogEntry("Missing AssetStrLimit, setting to defaults of 50")
+    iAssetstrLimit = 50
+
+  if "AssetListLimit" in dictConfig:
+    if isInt(dictConfig["AssetListLimit"]):
+      iAssetListLimit = int(dictConfig["AssetListLimit"])
+    else:
+      LogEntry("Invalid AssetListLimit, setting to defaults of 999")
+      iAssetListLimit = 999
+  else:
+    LogEntry("Missing AssetListLimit, setting to defaults of 999")
+    iAssetListLimit = 999
+
   if "OutFile" in dictConfig:
     strRAWout = dictConfig["OutFile"]
   else:
@@ -690,7 +717,7 @@ def main():
   iExtLoc = strRAWout.rfind(".")
   strCSVName = strRAWout[:iExtLoc] + ".csv"
   objCSVOut = open(strCSVName,"w",1)
-  objCSVOut.write("AssetID,HostName,FQDN,NetBIOS,IPv4,Network,OS,PluginID,Plugin Name,Descr,Family Name,Family ID\n")
+  objCSVOut.write("{}\n".format(strCSVHead))
 
   if strExportType == "vulns":
     dictPayload["num_assets"] = iChunkSize
