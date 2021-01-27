@@ -153,7 +153,7 @@ def CSVClean(strText,iLimit):
     strTemp = str(strText)
     strTemp = strTemp.encode("ascii", "ignore")
     strTemp = strTemp.decode("ascii", "ignore")
-    strTemp = strTemp.replace(",", " ")
+    strTemp = strTemp.replace(",", "|")
     strTemp = strTemp.replace("\n"," ")
     strTemp = strTemp.replace("\r"," ")
     return strTemp[:iLimit]
@@ -284,20 +284,33 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           for dictFields in lstDictFields:
             for strKey in dictFields.keys():
               if strKey in dictChunkItem:
-                for strSubkey in lstDictFields[strKey]:
+                for strSubkey in dictFields[strKey]:
                   if strSubkey in dictChunkItem[strKey]:
-                    lstOutput.append(CSVClean(dictChunkItem[strKey][strSubkey],istrLimit))
+                    if strSubkey == "network_id":
+                      if dictChunkItem[strKey][strSubkey] == "00000000-0000-0000-0000-000000000000":
+                        strTemp = "Magenta"
+                      elif dictChunkItem[strKey][strSubkey] == "99357713-57a9-47dc-8689-3ad618444aab":
+                        strTemp = "Sprint"
+                      else:
+                        strTemp = "Unknown NetworkID {}".format(dictChunkItem[strKey][strSubkey])
+                    else:
+                      strTemp=dictChunkItem[strKey][strSubkey]
+                    lstOutput.append(CSVClean(strTemp,istrLimit))
+                  else:
+                    lstOutput.append("No such field "+strSubkey)
+              else:
+                lstOutput.append("No such field "+strfield)
+          
+          for strfield in lstStrFields:
+            if strfield in dictChunkItem:
+              lstOutput.append(CSVClean(dictChunkItem[strfield],istrLimit))
+            else:
+              lstOutput.append("No such field "+strfield)
+
           strLineOut = ",".join(lstOutput)
           objCSVOut.write(strLineOut+"\n")
-          
-
-              # if strNetworkID == "00000000-0000-0000-0000-000000000000":
-              #   strNetworkName = "Magenta"
-              # elif strNetworkID == "99357713-57a9-47dc-8689-3ad618444aab":
-              #   strNetworkName = "Sprint"
-              # else:
-              #   strNetworkName = "Unknown NetworkID {}".format(strNetworkID)
-
+        else:
+          LogEntry("Function {} is unknown".format(strFunction))  
 
 def BulkExport(strFunction,strExportUUID):
   global iRowCount
