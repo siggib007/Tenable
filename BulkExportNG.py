@@ -265,81 +265,39 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       dictChunkStatus[iChunkID] = iChunkLen
       LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for dictChunkItem in APIResponse:
+        lstOutput = []
         if strFunction == "assets":
-          lstOutput = []
-          for strfield in lstAssetStrFields:
+          for strfield in lstStrFields:
             if strfield in dictChunkItem:
-              lstOutput.append(CSVClean(dictChunkItem[strfield],iAssetstrLimit))
+              lstOutput.append(CSVClean(dictChunkItem[strfield],istrLimit))
             else:
               lstOutput.append("No such field "+strfield)
-          for strfield in lstAssetListFields:
+          for strfield in lstListFields:
             if strfield in dictChunkItem:
-              lstOutput.append(CSVClean(" | ".join(dictChunkItem[strfield]),iAssetListLimit))
+              lstOutput.append(CSVClean(" | ".join(dictChunkItem[strfield]),iListLimit))
             else:
               lstOutput.append("No such field "+strfield)
-
           strLineOut = ",".join(lstOutput)
           objCSVOut.write(strLineOut+"\n")
 
         if strFunction == "vulns":
-          if "asset" in dictChunkItem:
-            if "uuid" in dictChunkItem["asset"]:
-              strAssetID = CSVClean(dictChunkItem["asset"]["uuid"],50) 
-            else:
-              strAssetID = ""
-            if "ipv4" in dictChunkItem["asset"]:
-              strIPv4 = CSVClean (dictChunkItem["asset"]["ipv4"],990)
-            else:
-              strIPv4 = ""
-            if "fqdn" in dictChunkItem["asset"]:
-              strFQDN = CSVClean (dictChunkItem["asset"]["fqdn"],990)
-            else:
-              strFQDN = ""
-            if "netbios_name" in dictChunkItem["asset"]:
-              strNetBIOS = CSVClean (dictChunkItem["asset"]["netbios_name"],990)
-            else:
-              strNetBIOS = ""
-            if "operating_system" in dictChunkItem["asset"]:
-              strOS = CSVClean (" | ".join(dictChunkItem["asset"]["operating_system"]),990)
-            else:
-              strOS = ""
-            if "hostname" in dictChunkItem["asset"]:
-              strHostName = CSVClean (dictChunkItem["asset"]["hostname"],990)
-            else:
-              strHostName = ""
-            if "network_id" in dictChunkItem["asset"]:
-              strNetworkID = dictChunkItem["asset"]["network_id"]
-              if strNetworkID == "00000000-0000-0000-0000-000000000000":
-                strNetworkName = "Magenta"
-              elif strNetworkID == "99357713-57a9-47dc-8689-3ad618444aab":
-                strNetworkName = "Sprint"
-              else:
-                strNetworkName = "Unknown NetworkID {}".format(strNetworkID)
-            else:
-              strNetworkName = ""
-            objCSVOut.write("{},{},{},{},{},{},{},".format(strAssetID,strHostName,strFQDN,strNetBIOS,strIPv4,strNetworkName,strOS))
-          if "plugin" in dictChunkItem:
-            if "id" in dictChunkItem["plugin"]:
-              strPluginID = CSVClean(str(dictChunkItem["plugin"]["id"]),50) 
-            else:
-              strPluginID = ""
-            if "name" in dictChunkItem["plugin"]:
-              strPluginName = CSVClean (dictChunkItem["plugin"]["name"],990)
-            else:
-              strPluginName = ""
-            if "description" in dictChunkItem["plugin"]:
-              strDescr = CSVClean (dictChunkItem["plugin"]["description"],990)
-            else:
-              strDescr = ""
-            if "family" in dictChunkItem["plugin"]:
-              strFamilyName = CSVClean (dictChunkItem["plugin"]["family"],990)
-            else:
-              strFamilyName = ""
-            if "family_id" in dictChunkItem["plugin"]:
-              strFamilyID = CSVClean (str(dictChunkItem["plugin"]["family_id"]),990)
-            else:
-              strFamilyID = ""
-            objCSVOut.write("{},{},{},{},{}\n".format(strPluginID,strPluginName,strDescr,strFamilyName,strFamilyID))
+          for dictFields in lstDictFields:
+            for strKey in dictFields.keys():
+              if strKey in dictChunkItem:
+                for strSubkey in lstDictFields[strKey]:
+                  if strSubkey in dictChunkItem[strKey]:
+                    lstOutput.append(CSVClean(dictChunkItem[strKey][strSubkey],istrLimit))
+          strLineOut = ",".join(lstOutput)
+          objCSVOut.write(strLineOut+"\n")
+          
+
+              # if strNetworkID == "00000000-0000-0000-0000-000000000000":
+              #   strNetworkName = "Magenta"
+              # elif strNetworkID == "99357713-57a9-47dc-8689-3ad618444aab":
+              #   strNetworkName = "Sprint"
+              # else:
+              #   strNetworkName = "Unknown NetworkID {}".format(strNetworkID)
+
 
 def BulkExport(strFunction,strExportUUID):
   global iRowCount
@@ -470,10 +428,11 @@ def main():
   global iMaxRetry
   global dictProxies
   global iSlackLimit
-  global lstAssetListFields
-  global lstAssetStrFields
-  global iAssetstrLimit
-  global iAssetListLimit
+  global lstListFields
+  global lstStrFields
+  global istrLimit
+  global iListLimit
+  global lstDictFields
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -662,41 +621,49 @@ def main():
   else:
     dictProxies = {}
 
-
-  if "AssetListFields" in dictConfig:
-    lstAssetListFields = dictConfig["AssetListFields"].split(",")
+  if "ListFields" in dictConfig:
+    lstListFields = dictConfig["ListFields"].split(",")
   else:
-    lstAssetListFields = []
+    lstListFields = []
 
-  if "AssetStrFields" in dictConfig:
-    lstAssetStrFields = dictConfig["AssetStrFields"].split(",")
+  if "StrFields" in dictConfig:
+    lstStrFields = dictConfig["StrFields"].split(",")
   else:
-    lstAssetStrFields = []
+    lstStrFields = []
+
+  lstDictFields = []
+  if "DictFields" in dictConfig:
+    lstTemp = dictConfig["DictFields"].split("|")
+    for strTmp in lstTemp:
+      lstItem = strTmp.split(":")
+      dictFieldItem = {}
+      dictFieldItem[lstItem[0]]=lstItem[1].split(",")
+      lstDictFields.append(dictFieldItem.copy())
 
   if "CSVColumnHead" in dictConfig:
     strCSVHead = dictConfig["CSVColumnHead"]
   else:
-    strCSVHead = "{},{}".format(",".join(lstAssetStrFields),",".join(lstAssetListFields))
+    strCSVHead = "{},{}".format(",".join(lstStrFields),",".join(lstListFields))
 
-  if "AssetStrLimit" in dictConfig:
-    if isInt(dictConfig["AssetStrLimit"]):
-      iAssetstrLimit = int(dictConfig["AssetStrLimit"])
+  if "StrLimit" in dictConfig:
+    if isInt(dictConfig["StrLimit"]):
+      istrLimit = int(dictConfig["StrLimit"])
     else:
-      LogEntry("Invalid AssetStrLimit, setting to defaults of 50")
-      iAssetstrLimit = 50
+      LogEntry("Invalid StrLimit, setting to defaults of 50")
+      istrLimit = 50
   else:
-    LogEntry("Missing AssetStrLimit, setting to defaults of 50")
-    iAssetstrLimit = 50
+    LogEntry("Missing StrLimit, setting to defaults of 50")
+    istrLimit = 50
 
-  if "AssetListLimit" in dictConfig:
-    if isInt(dictConfig["AssetListLimit"]):
-      iAssetListLimit = int(dictConfig["AssetListLimit"])
+  if "ListLimit" in dictConfig:
+    if isInt(dictConfig["ListLimit"]):
+      iListLimit = int(dictConfig["ListLimit"])
     else:
-      LogEntry("Invalid AssetListLimit, setting to defaults of 999")
-      iAssetListLimit = 999
+      LogEntry("Invalid ListLimit, setting to defaults of 999")
+      iListLimit = 999
   else:
-    LogEntry("Missing AssetListLimit, setting to defaults of 999")
-    iAssetListLimit = 999
+    LogEntry("Missing ListLimit, setting to defaults of 999")
+    iListLimit = 999
 
   if "OutFile" in dictConfig:
     strRAWout = dictConfig["OutFile"]
@@ -727,7 +694,6 @@ def main():
       "permission denied.".format(strCSVName),True)
   except Exception as err:
     LogEntry("Unexpected error while attempting to open {} for writing. Error Details: {}".format(strCSVName,err),True)
-
 
   if strExportType == "vulns":
     dictPayload["num_assets"] = iChunkSize
