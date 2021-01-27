@@ -712,12 +712,22 @@ def main():
   except PermissionError:
     LogEntry("unable to open output file {} for writing, "
       "permission denied.".format(strRAWout),True)
+  except Exception as err:
+    LogEntry("Unexpected error while attempting to open {} for writing. Error Details: {}".format(strRAWout,err),True)
   LogEntry ("Raw Output file {} created".format(strRAWout))
 
   iExtLoc = strRAWout.rfind(".")
   strCSVName = strRAWout[:iExtLoc] + ".csv"
-  objCSVOut = open(strCSVName,"w",1)
-  objCSVOut.write("{}\n".format(strCSVHead))
+  
+  try:
+    objCSVOut = open(strCSVName,"w",1)
+    objCSVOut.write("{}\n".format(strCSVHead))
+  except PermissionError:
+    LogEntry("unable to open or write to CSV file {} for writing, "
+      "permission denied.".format(strCSVName),True)
+  except Exception as err:
+    LogEntry("Unexpected error while attempting to open {} for writing. Error Details: {}".format(strCSVName,err),True)
+
 
   if strExportType == "vulns":
     dictPayload["num_assets"] = iChunkSize
