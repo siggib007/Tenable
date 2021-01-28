@@ -287,10 +287,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
                 for strSubkey in dictFields[strKey]:
                   if strSubkey in dictChunkItem[strKey]:
                     if strSubkey == "network_id":
-                      if dictChunkItem[strKey][strSubkey] == "00000000-0000-0000-0000-000000000000":
-                        strTemp = "Magenta"
-                      elif dictChunkItem[strKey][strSubkey] == "99357713-57a9-47dc-8689-3ad618444aab":
-                        strTemp = "Sprint"
+                      if dictChunkItem[strKey][strSubkey] in dictConfig:
+                        strTemp = dictConfig[dictChunkItem[strKey][strSubkey]]
                       else:
                         strTemp = "Unknown NetworkID {}".format(dictChunkItem[strKey][strSubkey])
                     else:
