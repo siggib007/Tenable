@@ -27,7 +27,7 @@ iTotalAdded = 0
 #avoid insecure warning
 requests.urllib3.disable_warnings()
 
-def SendNotification (strMsg):
+def SendNotification(strMsg):
   if not bNotifyEnabled:
     return "notifications not enabled"
   dictNotify = {}
@@ -40,52 +40,52 @@ def SendNotification (strMsg):
   try:
     WebRequest = requests.get(strURL,timeout=iTimeOut)
   except Exception as err:
-    LogEntry ("Issue with sending notifications. {}".format(err))
+    LogEntry("Issue with sending notifications. {}".format(err))
   if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry ("response is unknown type")
+    LogEntry("response is unknown type")
   else:
     dictResponse = json.loads(WebRequest.text)
     if isinstance(dictResponse,dict):
       if "ok" in dictResponse:
         bStatus = dictResponse["ok"]
-        LogEntry ("Successfully sent slack notification\n{} ".format(strMsg))
+        LogEntry("Successfully sent slack notification\n{} ".format(strMsg))
     if not bStatus or WebRequest.status_code != 200:
-      LogEntry ("Problme: Status Code:[] API Response OK={}")
-      LogEntry (WebRequest.text)
+      LogEntry("Problme: Status Code:[] API Response OK={}")
+      LogEntry(WebRequest.text)
 
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
   objLogOut.close()
-  print ("objLogOut closed")
+  print("objLogOut closed")
   if dbConn != "":
     dbConn.close()
-  print ("dbConn closed")
+  print("dbConn closed")
 
   sys.exit(9)
 
 def LogEntry(strMsg,bAbort=False):
   strTimeStamp = time.strftime("%m-%d-%Y %H:%M:%S")
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
-  print (strMsg)
+  print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
+    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:99]))
     CleanExit("")
 
 def processConf(strConf_File):
 
-  LogEntry ("Looking for configuration file: {}".format(strConf_File))
+  LogEntry("Looking for configuration file: {}".format(strConf_File))
   if os.path.isfile(strConf_File):
-    LogEntry ("Configuration File exists")
+    LogEntry("Configuration File exists")
   else:
-    LogEntry ("Can't find configuration file {}, make sure it is the same directory "
+    LogEntry("Can't find configuration file {}, make sure it is the same directory "
       "as this script and named the same with ini extension".format(strConf_File))
-    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
+    LogEntry("{} on {}: Exiting.".format(strScriptName,strScriptHost))
     objLogOut.close()
     sys.exit(9)
 
   strLine = "  "
   dictConfig = {}
-  LogEntry ("Reading in configuration")
+  LogEntry("Reading in configuration")
   objINIFile = open(strConf_File,"r")
   strLines = objINIFile.readlines()
   objINIFile.close()
@@ -109,9 +109,8 @@ def processConf(strConf_File):
       else:
         dictConfig[strVarName] = strValue
       if strVarName == "include":
-        LogEntry ("Found include directive: {}".format(strValue))
+        LogEntry("Found include directive: {}".format(strValue))
         strValue = strValue.replace("\\","/")
-        # print (":1={}\n1:3={}".format(strValue[:1],strValue[1:3]))
         if strValue[:1] == "/" or strValue[1:3] == ":/":
           LogEntry("include directive is absolute path, using as is")
         else:
@@ -119,17 +118,17 @@ def processConf(strConf_File):
           LogEntry("include directive is relative path,"
             " appended base directory. {}".format(strValue))
         if os.path.isfile(strValue):
-          LogEntry ("file is valid")
+          LogEntry("file is valid")
           objINIFile = open(strValue,"r")
           strLines += objINIFile.readlines()
           objINIFile.close()
         else:
-          LogEntry ("invalid file in include directive")
+          LogEntry("invalid file in include directive")
 
-  LogEntry ("Done processing configuration, moving on")
+  LogEntry("Done processing configuration, moving on")
   return dictConfig
 
-def isInt (CheckValue):
+def isInt(CheckValue):
   # function to safely check if a value can be interpreded as an int
   if isinstance(CheckValue,int):
     return True
@@ -141,7 +140,7 @@ def isInt (CheckValue):
   else:
     return False
 
-def ConvertFloat (fValue):
+def ConvertFloat(fValue):
   if isinstance(fValue,(float,int,str)):
     try:
       fTemp = float(fValue)
@@ -155,7 +154,7 @@ def QDate2DB(strDate):
   strTemp = strDate.replace("T"," ")
   return strTemp.replace("Z","")
 
-def FormatTenableDate (strdate):
+def FormatTenableDate(strdate):
   if strdate is None:
     return "None"
   if len(strdate) > 14:
@@ -182,7 +181,7 @@ def DBClean(strText):
   strTemp = strTemp.replace("'","\"")
   return strTemp
 
-def MakeAPICall (strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD=""):
+def MakeAPICall(strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD=""):
 
   global tLastCall
   global iTotalSleep
@@ -191,20 +190,20 @@ def MakeAPICall (strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD
   strUserName = strUser
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry ("It's been {} seconds since last API call".format(fDelta))
+  LogEntry("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
     iDelta = int(fDelta)
     iAddWait = iMinQuiet - iDelta
-    LogEntry ("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
+    LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: \n {}".format(strMethod,strURL))
-  # print ("UID:{} PWD:{}".format(strUser, strPWD))
+  LogEntry("Doing a {} to URL: \n {}".format(strMethod,strURL))
+  # print("UID:{} PWD:{}".format(strUser, strPWD))
   try:
     if strMethod.lower() == "get":
       if strUser != "" and strPWD != "":
@@ -214,31 +213,31 @@ def MakeAPICall (strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD
       else:
         LogEntry("credentials are blank, proceeding without auth")
         WebRequest = requests.get(strURL, headers=dictHeader, verify=False)
-      LogEntry ("get executed")
+      LogEntry("get executed")
     elif strMethod.lower() == "put":
       WebRequest = requests.put(strURL, headers=dictHeader, verify=False)
-      LogEntry ("put executed")
+      LogEntry("put executed")
     elif strMethod.lower() == "post":
       if dictPayload != "":
         WebRequest = requests.post(strURL, json= dictPayload, headers=dictHeader, verify=False)
       else:
         WebRequest = requests.post(strURL, headers=dictHeader, verify=False)
-      LogEntry ("post executed")
+      LogEntry("post executed")
     else:
-      LogEntry ("unknown method: {}".format(strMethod),True)
+      LogEntry("unknown method: {}".format(strMethod),True)
   except Exception as err:
-    LogEntry ("Issue with API call. {}".format(err))
-    # CleanExit ("due to issue with API, please check the logs")
+    LogEntry("Issue with API call. {}".format(err))
+    # CleanExit("due to issue with API, please check the logs")
     return "API Error"
 
   if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry ("response is unknown type")
+    LogEntry("response is unknown type")
     iErrCode = "ResponseErr"
     iErrText = "response is unknown type"
 
-  LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
+  LogEntry("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
+    LogEntry(WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
 
@@ -251,7 +250,7 @@ def MakeAPICall (strURL, dictHeader, strMethod, dictPayload="",strUser="",strPWD
     try:
       return WebRequest.json()
     except Exception as err:
-      LogEntry ("Issue with converting response to json. Here are the first 99 character of the response: '{}'".format(WebRequest.text[:99]))
+      LogEntry("Issue with converting response to json. Here are the first 99 character of the response: '{}'".format(WebRequest.text[:99]))
 
 def GetGroupID(strGroupName):
   dictPayload = {}
@@ -309,7 +308,7 @@ def Add2Group(strGroupName,dictAgents):
         bAdd2Group = True
   else:
     bAdd2Group = True
-    LogEntry ("not in any groups sofar")
+    LogEntry("not in any groups sofar")
 
   if bAdd2Group:
     LogEntry("Adding {} to '{}'".format(dictAgents["name"],strGroupName))
@@ -318,7 +317,7 @@ def Add2Group(strGroupName,dictAgents):
     else:
       iGroupID = GetGroupID(strGroupName)
       dictGroupIDs[strGroupName] = iGroupID
-      print ("Group ID is {}".format(iGroupID))
+      print("Group ID is {}".format(iGroupID))
     strAPIFunction = "scanners/scanner_id/agent-groups/"+str(iGroupID)+"/agents/"+str(dictAgents["id"])
     strMethod = "put"
     strURL = strBaseURL + strAPIFunction
@@ -330,21 +329,21 @@ def Add2Group(strGroupName,dictAgents):
 
   return GroupAddResponse
 
-def SQLConn (strServer,strDBUser,strDBPWD,strInitialDB):
+def SQLConn(strServer,strDBUser,strDBPWD,strInitialDB):
   try:
     # Open database connection
     return pymysql.connect(strServer,strDBUser,strDBPWD,strInitialDB)
   except pymysql.err.InternalError as err:
-    print ("Error: unable to connect: {}".format(err))
+    print("Error: unable to connect: {}".format(err))
     sys.exit(5)
   except pymysql.err.OperationalError as err:
-    print ("Operational Error: unable to connect: {}".format(err))
+    print("Operational Error: unable to connect: {}".format(err))
     sys.exit(5)
   except pymysql.err.ProgrammingError as err:
-    print ("Programing Error: unable to connect: {}".format(err))
+    print("Programing Error: unable to connect: {}".format(err))
     sys.exit(5)
 
-def SQLQuery (strSQL,db):
+def SQLQuery(strSQL,db):
   try:
     # prepare a cursor object using cursor() method
     dbCursor = db.cursor()
@@ -391,25 +390,6 @@ def ValidReturn(lsttest):
   else:
     return False
 
-def CalcNet(strIPAddr):
-  if strIPAddr.count(".")<3 or strIPAddr.count(".")>3:
-    strNetType = "invalidNet"
-  else:
-    strIPparts = strIPAddr.split(".")
-    # print ("IP address is {}, first part is {} and second part is {}".format(strIPAddr,strIPparts[0],strIPparts[1]))
-    if int(strIPparts[0]) == 10 and int(strIPparts[1]) < 160:
-      strNetType = "EIT"
-    elif int(strIPparts[0]) == 10 and int(strIPparts[1]) < 240:
-      strNetType = "CoreNet"
-    elif int(strIPparts[0]) == 10:
-      strNetType = "NMnet"
-    elif int(strIPparts[0]) == 5:
-      strNetType = "NMnet"
-    else:
-      strNetType = "UnknownNet"
-  # print (strNetType)
-  return strNetType
-
 def InspectSNValue(CheckValue):
   if isinstance(CheckValue,dict):
     if "display_value" in CheckValue:
@@ -451,25 +431,25 @@ def QuerySNServers(strPlatform,strServerName):
   if isinstance(APIResponse,dict):
     if "result" in APIResponse:
       if "error_message" in APIResponse["result"]:
-        LogEntry ("Error Occured: {}".format(APIResponse["result"]["error_message"]),True)
+        LogEntry("Error Occured: {}".format(APIResponse["result"]["error_message"]),True)
       elif isinstance(APIResponse["result"],list):
         if len(APIResponse["result"]) > 0:
-          LogEntry ("There are {} items in the results. Only processing item 1".format(len(APIResponse["result"])))
+          LogEntry("There are {} items in the results. Only processing item 1".format(len(APIResponse["result"])))
           dictItem = APIResponse["result"][0]
           if "used_for" in dictItem:
-            dictResults["used_for"] = InspectSNValue (dictItem["used_for"])
+            dictResults["used_for"] = InspectSNValue(dictItem["used_for"])
             LogEntry("Used for: {}".format(dictResults["used_for"]))
           if "location" in dictItem:
-            dictResults["location"] = InspectSNValue (dictItem["location"])
+            dictResults["location"] = InspectSNValue(dictItem["location"])
             LogEntry("Location: {}".format(dictResults["location"]))
         else:
           LogEntry("Result list is empty")
       else:
-        LogEntry ("no list. result is type: {}".format(type(APIResponse["result"])))
+        LogEntry("no list. result is type: {}".format(type(APIResponse["result"])))
     else:
-      LogEntry ("no results:\n{}".format(APIResponse))
+      LogEntry("no results:\n{}".format(APIResponse))
   elif isinstance(APIResponse,str):
-    LogEntry (APIResponse)
+    LogEntry(APIResponse)
     dictResults = APIResponse
   else:
     LogEntry("Response is neither dict nor a string. It is a {} and here is the content:{}".format(type(APIResponse),APIResponse))
@@ -479,17 +459,17 @@ def QuerySNServers(strPlatform,strServerName):
   if isinstance(dictResults,dict):
     if "location" in dictResults:
       strSQL = "select vcSiteCode from tblSiteCodes where vcSNLocation = '{}';".format(dictResults["location"])
-      lstReturn = SQLQuery (strSQL,dbConn)
+      lstReturn = SQLQuery(strSQL,dbConn)
       if not ValidReturn(lstReturn):
-        LogEntry ("Unexpected: {}".format(lstReturn))
+        LogEntry("Unexpected: {}".format(lstReturn))
         CleanExit("due to unexpected SQL return, please check the logs")
       elif lstReturn[0] == 0:
         strLocCode = "unknown"
-        LogEntry ("location {} not in location table".format(dictResults["location"]))
+        LogEntry("location {} not in location table".format(dictResults["location"]))
       elif lstReturn[0] > 1:
-        SendNotification ("More than one instance of {} in location table,"
+        SendNotification("More than one instance of {} in location table,"
           " picking the first one".format(dictResults["location"]))
-        LogEntry ("More than one instance of {} in location table,"
+        LogEntry("More than one instance of {} in location table,"
           " picking the first one".format(dictResults["location"]))
         strLocCode = (lstReturn[1][0][0])
       else:
@@ -538,9 +518,6 @@ def main():
   global dictHeader
   global dictGroupIDs
   global iTotalAdded
-  global strSNUser
-  global strSNPWD
-  global strSNBaseURL
   global dbConn
 
   #Define few things
@@ -569,9 +546,9 @@ def main():
   iLoc = sys.argv[0].rfind(".")
   strConf_File = sys.argv[0][:iLoc] + ".ini"
 
-  if not os.path.exists (strLogDir) :
+  if not os.path.exists(strLogDir) :
     os.makedirs(strLogDir)
-    print ("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
+    print("\nPath '{0}' for log files didn't exists, so I create it!\n".format(strLogDir))
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
@@ -580,11 +557,11 @@ def main():
   dictPayload = {}
   strScriptHost = platform.node().upper()
 
-  print ("This is a script to download Tenable Agent list via API. This is running under Python Version {}".format(strVersion))
-  print ("Running from: {}".format(strRealPath))
+  print("This is a script to put Tenable Nessus agents in their correct groups. This is running under Python Version {}".format(strVersion))
+  print("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
-  print ("The time now is {}".format(dtNow))
-  print ("Logs saved to {}".format(strLogFile))
+  print("The time now is {}".format(dtNow))
+  print("Logs saved to {}".format(strLogFile))
   objLogOut = open(strLogFile,"w",1)
 
   tLastCall = 0
@@ -636,24 +613,6 @@ def main():
   else:
     LogEntry("No limit provided, setting to defaults of {}".format(iLimit))
 
-  if "SNAPIBaseURL" in dictConfig:
-    strSNBaseURL = dictConfig["SNAPIBaseURL"]
-  else:
-    CleanExit("No SNOW Base API provided")
-
-  if strSNBaseURL[-1:] != "/":
-    strSNBaseURL += "/"
-
-  if "SNUserID" in dictConfig:
-    strSNUser = dictConfig["SNUserID"]
-  else:
-    LogEntry("No SNOW UserID")
-
-  if "SNUserPWD" in dictConfig:
-    strSNPWD = dictConfig["SNUserPWD"]
-  else:
-    LogEntry("No SNOW PWD")
-
   if "dbUser" in dictConfig:
     strDBUser = dictConfig["dbUser"]
   else:
@@ -674,7 +633,6 @@ def main():
   else:
     LogEntry("No Initial DB",True)
 
-
   dictResults = {}
   dictGroupIDs = {}
 
@@ -684,7 +642,7 @@ def main():
   iTotalProcessed = 0
   
 
-  dbConn = SQLConn (strServer,strDBUser,strDBPWD,strInitialDB)
+  dbConn = SQLConn(strServer,strDBUser,strDBPWD,strInitialDB)
 
   while iTotalProcessed < iTotalAgents:
     strAPIFunction = "scanners/scanner_id/agents"
@@ -700,24 +658,24 @@ def main():
       if "agents" in APIResponse:
         if isinstance(APIResponse["agents"],list):
           for dictAgents in APIResponse["agents"]:
-            LogEntry ("processing platform specific groups")
-            LogEntry ("platform for {} is {}".format(dictAgents["name"],dictAgents["platform"]))
+            LogEntry("processing platform specific groups")
+            LogEntry("platform for {} is {}".format(dictAgents["name"],dictAgents["platform"]))
             strOS = dictAgents["platform"]
             GroupAddResponse = Add2Group(strOS,dictAgents)
-            LogEntry ("processing IP specific groups")
+            LogEntry("processing IP specific groups")
             strNetType = CalcNet(dictAgents["ip"])
             if strNetType == "UnknownNet":
               LogEntry("Unknown Net type for IP address {}".format(dictAgents["ip"]))
             if strNetType == "invalidNet":
               LogEntry("IP address {} is not a valid IPv4 address")
-            LogEntry ("Net type for {} is {}".format(dictAgents["name"],strNetType))
+            LogEntry("Net type for {} is {}".format(dictAgents["name"],strNetType))
             GroupAddResponse = Add2Group(strNetType,dictAgents)
             if "groups" in dictAgents:
               if isinstance(dictAgents["groups"],list):
                 if len(dictAgents["groups"]) > 3:
                   LogEntry("Agent is in more than three groups, skipping to next one.")
                   continue
-            LogEntry ("Now querying SNOW for details on {}".format(dictAgents["name"]))
+            LogEntry("Now querying SNOW for details on {}".format(dictAgents["name"]))
             dictResults = QuerySNServers(dictAgents["platform"],dictAgents["name"])
             strLocCode = "unknown location"
             strUseCode = "unknown use"
@@ -743,7 +701,7 @@ def main():
             LogEntry(GroupAddResponse)
             if iOffset == 0:
               iTotalAgents = "n/a"
-            LogEntry ("Processed: {}, added:{}, total: {}, offset:{}, limit:{}".format(iTotalProcessed,iTotalAdded,
+            LogEntry("Processed: {}, added:{}, total: {}, offset:{}, limit:{}".format(iTotalProcessed,iTotalAdded,
                       iTotalAgents,iOffset,iLimit))
         else:
           LogEntry("Agent list isn't a list???? Agent list is a {}".format(type(APIResponse["agents"])))
@@ -766,21 +724,21 @@ def main():
       else:
         LogEntry("No pagination, must be done")
         iTotalAgents = iTotalProcessed
-      LogEntry ("Processed: {}, total: {}, offset:{}, limit:{}".format(iTotalProcessed,iTotalAgents,iROffset,iRLimit))
+      LogEntry("Processed: {}, total: {}, offset:{}, limit:{}".format(iTotalProcessed,iTotalAgents,iROffset,iRLimit))
       iOffset += iLimit
     else:
       CleanExit("APIResponse not a dict, it is {}".format(type(APIResponse)))
 
-  LogEntry ("Completed {} rows at {}. Added {} agents to groups".format(iTotalProcessed,dtNow,iTotalAdded))
+  LogEntry("Completed {} rows at {}. Added {} agents to groups".format(iTotalProcessed,dtNow,iTotalAdded))
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
   iHours, iMin = divmod(iMin, 60)
   dtNow = time.asctime()
-  LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
+  LogEntry("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
               iElapseSec,iHours,iMin,iSec))
 
-  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
   dbConn.close()
 
