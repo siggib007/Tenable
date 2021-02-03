@@ -564,11 +564,11 @@ def main():
     else:
       strURL = strBaseURL + strAPIFunction
     APIResponse = MakeAPICall(strURL,dictHeader,strMethod, dictPayload)
-    iTotalProcessed += 1
     if isinstance(APIResponse,dict):
       if "agents" in APIResponse:
         if isinstance(APIResponse["agents"],list):
           for dictAgents in APIResponse["agents"]:
+            iTotalProcessed += 1
             LogEntry("platform for {} is {}".format(dictAgents["name"],dictAgents["platform"]))
             if "groups" in dictAgents:
               if isinstance(dictAgents["groups"],list):
