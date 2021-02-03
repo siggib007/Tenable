@@ -293,6 +293,7 @@ def Add2Group(strGroupName,dictAgents):
   bAdd2Group = True
   dictPayload = {}
   GroupAddResponse = None
+  iTotalAdded += 1
   return "Not adding {} to {} because testing".format(dictAgents["name"],strGroupName)
 
   if "groups" in dictAgents:
@@ -525,13 +526,32 @@ def main():
   else:
     LogEntry("No Initial DB",True)
 
+  if "ECS_Scope" in dictConfig:
+    strECS_Scope = dictConfig["ECS_Scope"]
+  else:
+    LogEntry("No Initial DB",True)
+
+  if os.path.isfile(strECS_Scope):
+    LogEntry("ECS Scope file is valid")
+    try:
+      objECS = open(strECS_Scope,"r")
+    except PermissionError:
+      LogEntry("unable to open ECS Scope file {} for reading, "
+        "permission denied.".format(strECS_Scope),True)
+    except Exception as err:
+      LogEntry("Unexpected error while attempting to open {} for reading. Error Details: {}".format(strECS_Scope,err),True)
+  else:
+    LogEntry("File path for ECS Scope is not valid. {}".format(strECS_Scope),True)
+
+  lstECS = objECS.readlines()
+
   dictGroupIDs = {}
 
   iOffset = 0
   iTotalAgents = iLimit
   dictParams["limit"] = iLimit
   iTotalProcessed = 0
-  
+
   dbConn = SQLConn(strServer,strDBUser,strDBPWD,strInitialDB)
 
   while iTotalProcessed < iTotalAgents:
@@ -544,6 +564,7 @@ def main():
     else:
       strURL = strBaseURL + strAPIFunction
     APIResponse = MakeAPICall(strURL,dictHeader,strMethod, dictPayload)
+    iTotalProcessed += 1
     if isinstance(APIResponse,dict):
       if "agents" in APIResponse:
         if isinstance(APIResponse["agents"],list):
@@ -555,8 +576,13 @@ def main():
                   LogEntry("Agent is already in one or more groups, skipping to next one.")
                   continue
             strOS = dictAgents["platform"]
-            GroupAddResponse = Add2Group(strOS,dictAgents)
-            iTotalProcessed += 1
+            if dictAgents["name"] in lstECS:
+              if strOS.lower() == "windows":
+                GroupAddResponse = Add2Group("ECS Workstations General ",dictAgents)
+              else:
+                GroupAddResponse = Add2Group("ECS Workstations Macs ",dictAgents)
+            else:
+              GroupAddResponse = Add2Group(strOS,dictAgents)
             LogEntry(GroupAddResponse)
             if iOffset == 0:
               iTotalAgents = "n/a"
