@@ -293,6 +293,7 @@ def Add2Group(strGroupName,dictAgents):
   bAdd2Group = True
   dictPayload = {}
   GroupAddResponse = None
+  return "Not adding {} to {} because testing".format(dictAgents["name"],strGroupName)
 
   if "groups" in dictAgents:
     for dictAgentGroup in dictAgents["groups"]:
@@ -390,117 +391,6 @@ def ValidReturn(lsttest):
   else:
     return False
 
-def InspectSNValue(CheckValue):
-  if isinstance(CheckValue,dict):
-    if "display_value" in CheckValue:
-      return CheckValue["display_value"]
-    elif "value" in CheckValue:
-      return CheckValue["value"]
-    else:
-      return "Unknown dict"
-  elif isinstance(CheckValue,str):
-    return CheckValue
-  elif CheckValue is None:
-    return ""
-  else:
-    return type(CheckValue)
-
-def QuerySNServers(strPlatform,strServerName):
-
-  dictHeader = {}
-  dictPayload = {}
-  dictResults = {}
-  strLocCode = "unknown"
-  strMethod = "get"
-  dictHeader["Content-Type"] = "application/json"
-  dictHeader["Accept"] = "application/json"
-
-  if strPlatform == "LINUX":
-    strAPIFunction = "api/now/table/cmdb_ci_linux_server?"
-  elif strPlatform == "WINDOWS":
-    strAPIFunction = "api/now/table/cmdb_ci_win_server?"
-  else:
-    LogEntry("neither linux nor Windows, can't deal with that!")
-    return dictResults
-
-  strParam = ("sysparm_display_value=true&sysparm_query=name=")
-  strURL = strSNBaseURL + strAPIFunction + strParam + strServerName
-  LogEntry("fetching server from ServiceNow")
-  APIResponse = MakeAPICall(strURL,dictHeader,strMethod,dictPayload,strSNUser,strSNPWD)
-
-  if isinstance(APIResponse,dict):
-    if "result" in APIResponse:
-      if "error_message" in APIResponse["result"]:
-        LogEntry("Error Occured: {}".format(APIResponse["result"]["error_message"]),True)
-      elif isinstance(APIResponse["result"],list):
-        if len(APIResponse["result"]) > 0:
-          LogEntry("There are {} items in the results. Only processing item 1".format(len(APIResponse["result"])))
-          dictItem = APIResponse["result"][0]
-          if "used_for" in dictItem:
-            dictResults["used_for"] = InspectSNValue(dictItem["used_for"])
-            LogEntry("Used for: {}".format(dictResults["used_for"]))
-          if "location" in dictItem:
-            dictResults["location"] = InspectSNValue(dictItem["location"])
-            LogEntry("Location: {}".format(dictResults["location"]))
-        else:
-          LogEntry("Result list is empty")
-      else:
-        LogEntry("no list. result is type: {}".format(type(APIResponse["result"])))
-    else:
-      LogEntry("no results:\n{}".format(APIResponse))
-  elif isinstance(APIResponse,str):
-    LogEntry(APIResponse)
-    dictResults = APIResponse
-  else:
-    LogEntry("Response is neither dict nor a string. It is a {} and here is the content:{}".format(type(APIResponse),APIResponse))
-    dictResults = APIResponse
-
-
-  if isinstance(dictResults,dict):
-    if "location" in dictResults:
-      strSQL = "select vcSiteCode from tblSiteCodes where vcSNLocation = '{}';".format(dictResults["location"])
-      lstReturn = SQLQuery(strSQL,dbConn)
-      if not ValidReturn(lstReturn):
-        LogEntry("Unexpected: {}".format(lstReturn))
-        CleanExit("due to unexpected SQL return, please check the logs")
-      elif lstReturn[0] == 0:
-        strLocCode = "unknown"
-        LogEntry("location {} not in location table".format(dictResults["location"]))
-      elif lstReturn[0] > 1:
-        SendNotification("More than one instance of {} in location table,"
-          " picking the first one".format(dictResults["location"]))
-        LogEntry("More than one instance of {} in location table,"
-          " picking the first one".format(dictResults["location"]))
-        strLocCode = (lstReturn[1][0][0])
-      else:
-        strLocCode = (lstReturn[1][0][0])
-
-    if "used_for" in dictResults:
-      if dictResults["used_for"] == "Testing" and strLocCode != "unknown":
-        strLocCode = "NPE-{}".format(strLocCode)
-      else:
-        strLocCode = "{}".format(strLocCode)
-    else:
-      if strServerName[1:3].lower() == "prd":
-        dictResults["used_for"] = "Production"
-      if strServerName[1:3].lower() == "tst":
-        dictResults["used_for"] = "Testing"
-
-
-  if strLocCode == "unknown":
-    if strServerName[1:6].lower() == "prdpl":
-      strLocCode = "POL"
-    if strServerName[1:6].lower() == "prdtl":
-      strLocCode = "TTN"
-    if strServerName[1:6].lower() == "tstpl":
-      strLocCode = "NPE-POL"
-    if strServerName[1:6].lower() == "tsttl":
-      strLocCode = "NPE-TTN"
-  LogEntry("LocCode:{}".format(strLocCode))
-  dictResults["LocCode"] = strLocCode
-
-  return(dictResults)
-
 def main():
   global objLogOut
   global strScriptName
@@ -526,8 +416,6 @@ def main():
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   dictParams = {}
   dictParams["limit"] = "5000"
-  # dictParams["mode"] = "full"
-  # dictParams["mode"] = "extended"
   iLimit = 5000
   bNotifyEnabled = False
   dbConn = ""
@@ -568,6 +456,10 @@ def main():
   iTotalSleep = 0
   tStart=time.time()
   dictConfig = processConf(strConf_File)
+  if strScriptHost in dictConfig:
+    strScriptHost = dictConfig[strScriptHost]
+  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
+
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     dictHeader={
       'Content-type':'application/json',
@@ -633,7 +525,6 @@ def main():
   else:
     LogEntry("No Initial DB",True)
 
-  dictResults = {}
   dictGroupIDs = {}
 
   iOffset = 0
@@ -641,7 +532,6 @@ def main():
   dictParams["limit"] = iLimit
   iTotalProcessed = 0
   
-
   dbConn = SQLConn(strServer,strDBUser,strDBPWD,strInitialDB)
 
   while iTotalProcessed < iTotalAgents:
@@ -658,45 +548,14 @@ def main():
       if "agents" in APIResponse:
         if isinstance(APIResponse["agents"],list):
           for dictAgents in APIResponse["agents"]:
-            LogEntry("processing platform specific groups")
             LogEntry("platform for {} is {}".format(dictAgents["name"],dictAgents["platform"]))
-            strOS = dictAgents["platform"]
-            GroupAddResponse = Add2Group(strOS,dictAgents)
-            LogEntry("processing IP specific groups")
-            strNetType = CalcNet(dictAgents["ip"])
-            if strNetType == "UnknownNet":
-              LogEntry("Unknown Net type for IP address {}".format(dictAgents["ip"]))
-            if strNetType == "invalidNet":
-              LogEntry("IP address {} is not a valid IPv4 address")
-            LogEntry("Net type for {} is {}".format(dictAgents["name"],strNetType))
-            GroupAddResponse = Add2Group(strNetType,dictAgents)
             if "groups" in dictAgents:
               if isinstance(dictAgents["groups"],list):
-                if len(dictAgents["groups"]) > 3:
-                  LogEntry("Agent is in more than three groups, skipping to next one.")
+                if len(dictAgents["groups"]) > 0:
+                  LogEntry("Agent is already in one or more groups, skipping to next one.")
                   continue
-            LogEntry("Now querying SNOW for details on {}".format(dictAgents["name"]))
-            dictResults = QuerySNServers(dictAgents["platform"],dictAgents["name"])
-            strLocCode = "unknown location"
-            strUseCode = "unknown use"
-            if isinstance(dictResults,dict):
-              LogEntry("Adding used for group")
-              if "used_for" in dictResults:
-                if dictResults["used_for"].strip() != "":
-                  strUseCode = dictResults["used_for"]
-              GroupAddResponse = Add2Group(strUseCode,dictAgents)
-              LogEntry("Adding location group")
-              if "LocCode" in dictResults:
-                if dictResults["LocCode"].strip() != "":
-                  strLocCode = dictResults["LocCode"]
-              GroupAddResponse = Add2Group(strLocCode,dictAgents)
-              if strLocCode != "unknown location" and strUseCode != "unknown use" :
-                GroupAddResponse = Add2Group(strLocCode+"-"+strUseCode,dictAgents)
-                GroupAddResponse = Add2Group(strLocCode+"-"+strUseCode+"-"+strOS,dictAgents)
-              if strUseCode != "unknown use" :
-                GroupAddResponse = Add2Group(strUseCode+"-"+strOS,dictAgents)
-            else:
-              LogEntry("Result is not a dict it is type:{}".format(type(dictResults)),True)
+            strOS = dictAgents["platform"]
+            GroupAddResponse = Add2Group(strOS,dictAgents)
             iTotalProcessed += 1
             LogEntry(GroupAddResponse)
             if iOffset == 0:
