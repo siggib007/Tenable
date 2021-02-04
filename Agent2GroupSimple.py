@@ -293,8 +293,6 @@ def Add2Group(strGroupName,dictAgents):
   bAdd2Group = True
   dictPayload = {}
   GroupAddResponse = None
-  iTotalAdded += 1
-  return "Not adding {} to {} because testing".format(dictAgents["name"],strGroupName)
 
   if "groups" in dictAgents:
     for dictAgentGroup in dictAgents["groups"]:
@@ -543,7 +541,8 @@ def main():
   else:
     LogEntry("File path for ECS Scope is not valid. {}".format(strECS_Scope),True)
 
-  lstECS = objECS.readlines()
+  strECS = objECS.read()
+  lstECS = strECS.splitlines()
 
   dictGroupIDs = {}
 
@@ -577,10 +576,11 @@ def main():
                   continue
             strOS = dictAgents["platform"]
             if dictAgents["name"] in lstECS:
+              LogEntry("{} found on ECS list, so adding to that group.".format(dictAgents["name"]))
               if strOS.lower() == "windows":
-                GroupAddResponse = Add2Group("ECS Workstations General ",dictAgents)
+                GroupAddResponse = Add2Group("ECS Workstations General",dictAgents)
               else:
-                GroupAddResponse = Add2Group("ECS Workstations Macs ",dictAgents)
+                GroupAddResponse = Add2Group("ECS Workstations Macs",dictAgents)
             else:
               GroupAddResponse = Add2Group(strOS,dictAgents)
             LogEntry(GroupAddResponse)
