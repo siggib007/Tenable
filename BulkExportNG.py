@@ -36,21 +36,27 @@ iSysArgLen = len(lstSysArg)
 
 def processConf(strConf_File):
 
-  LogEntry ("Looking for configuration file: {}".format(strConf_File))
+  LogEntry("Looking for configuration file: {}".format(strConf_File))
   if os.path.isfile(strConf_File):
-    LogEntry ("Configuration File exists")
+    LogEntry("Configuration File exists")
   else:
-    LogEntry ("Can't find configuration file {}, make sure it is the same directory "
+    LogEntry("Can't find configuration file {}, make sure it is the same directory "
       "as this script and named the same with ini extension".format(strConf_File))
     objLogOut.close()
     sys.exit(9)
 
   strLine = "  "
   dictConfig = {}
-  LogEntry ("Reading in configuration")
-  objINIFile = open(strConf_File,"r")
-  strLines = objINIFile.readlines()
-  objINIFile.close()
+  LogEntry("Reading in configuration")
+  try:
+    objINIFile = open(strConf_File,"r")
+    strLines = objINIFile.readlines()
+    objINIFile.close()
+  except PermissionError:
+    LogEntry("unable to open configuration file {} for reading or actually reading it, "
+      "permission denied.".format(strConf_File),True)
+  except Exception as err:
+    LogEntry("Unexpected error while attempting to open {} for reading. Error Details: {}".format(strConf_File,err),True)
 
   for strLine in strLines:
     strFullLine = strLine.strip()
@@ -71,7 +77,7 @@ def processConf(strConf_File):
         strValue = strConfParts[1].strip()
       dictConfig[strVarName] = strValue
       if strVarName == "include":
-        LogEntry ("Found include directive: {}".format(strValue))
+        LogEntry("Found include directive: {}".format(strValue))
         strValue = strValue.replace("\\","/")
         if strValue[:1] == "/" or strValue[1:3] == ":/":
           LogEntry("include directive is absolute path, using as is")
@@ -80,19 +86,25 @@ def processConf(strConf_File):
           LogEntry("include directive is relative path,"
             " appended base directory. {}".format(strValue))
         if os.path.isfile(strValue):
-          LogEntry ("file is valid")
-          objINIFile = open(strValue,"r")
-          strLines += objINIFile.readlines()
+          LogEntry("file is valid")
+          try:
+            objINIFile = open(strValue,"r")
+            strLines += objINIFile.readlines()
+          except PermissionError:
+            LogEntry("unable to open configuration file {} for reading, "
+              "permission denied.".format(strValue),True)
+          except Exception as err:
+            LogEntry("Unexpected error while attempting to open {} for reading. Error Details: {}".format(strValue,err),True)
           objINIFile.close()
         else:
-          LogEntry ("invalid file in include directive")
+          LogEntry("invalid file in include directive")
 
-  LogEntry ("Done processing configuration, moving on")
+  LogEntry("Done processing configuration, moving on")
   return dictConfig
 
-def SendNotification (strMsg):
+def SendNotification(strMsg):
   if not bNotifyEnabled:
-    LogEntry ("Notification not enabled")
+    LogEntry("Notification not enabled")
     return
   dictNotify = {}
   dictNotify["token"] = dictConfig["NotifyToken"]
@@ -104,18 +116,18 @@ def SendNotification (strMsg):
   try:
     WebRequest = requests.get(strURL,timeout=iTimeOut)
   except Exception as err:
-    LogEntry ("Issue with sending notifications. {}".format(err))
+    LogEntry("Issue with sending notifications. {}".format(err))
   if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry ("response is unknown type")
+    LogEntry("response is unknown type")
   else:
     dictResponse = json.loads(WebRequest.text)
     if isinstance(dictResponse,dict):
       if "ok" in dictResponse:
         bStatus = dictResponse["ok"]
-        LogEntry ("Successfully sent slack notification\n{} ".format(strMsg))
+        LogEntry("Successfully sent slack notification\n{} ".format(strMsg))
     if not bStatus or WebRequest.status_code != 200:
-      LogEntry ("Problme: Status Code:[] API Response OK={}")
-      LogEntry (WebRequest.text)
+      LogEntry("Problme: Status Code:[] API Response OK={}")
+      LogEntry(WebRequest.text)
 
 def CleanExit(strCause):
   SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
@@ -129,12 +141,12 @@ def CleanExit(strCause):
 def LogEntry(strMsg,bAbort=False):
   strTimeStamp = time.strftime("%m-%d-%Y %H:%M:%S")
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
-  print (strMsg)
+  print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
+    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:99]))
     CleanExit("")
 
-def isInt (CheckValue):
+def isInt(CheckValue):
   # function to safely check if a value can be interpreded as an int
   if isinstance(CheckValue,int):
     return True
@@ -158,7 +170,7 @@ def CSVClean(strText,iLimit):
     strTemp = strTemp.replace("\r"," ")
     return strTemp[:iLimit]
 
-def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
+def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
 
   global tLastCall
   global iTotalSleep
@@ -166,41 +178,41 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry ("It's been {} seconds since last API call".format(fDelta))
+  LogEntry("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
     iDelta = int(fDelta)
     iAddWait = iMinQuiet - iDelta
-    LogEntry ("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
+    LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
 
-  LogEntry ("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
+  LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry ("get executed")
+      LogEntry("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
         WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
         WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry ("post executed")
+      LogEntry("post executed")
   except Exception as err:
     return "Issue with API call. {}".format(err)
-    # CleanExit ("due to issue with API, please check the logs")
+    # CleanExit("due to issue with API, please check the logs")
 
   if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry ("response is unknown type")
+    LogEntry("response is unknown type")
     iErrCode = "ResponseErr"
     iErrText = "response is unknown type"
 
-  LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
+  LogEntry("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
+    LogEntry(WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
 
@@ -226,7 +238,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
 
   for iChunkID in lstChunks:
     if iChunkID in dictChunkStatus:
-      LogEntry  ("Already processed chunk # {}, skipping".format(iChunkID))
+      LogEntry("Already processed chunk # {}, skipping".format(iChunkID))
       continue
 
     LogEntry("Fetching chunk #{} out of {}".format(iChunkID,strTotalChunks))
@@ -248,7 +260,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
           strCond = "good"
           iErrCount = 0
     if isinstance(APIResponse,dict):
-      LogEntry ("response is a dict")
+      LogEntry("response is a dict")
     elif isinstance(APIResponse,list):
       strResponse = "{}".format(strRawResults)
       strResponse = strResponse.encode("ascii","ignore")
@@ -257,13 +269,13 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
       if iRowCount > 0:
         strResponse = "," + strResponse
       try:
-        objFileOut.write ("{}".format(strResponse))
+        objFileOut.write("{}".format(strResponse))
       except Exception as err:
-        LogEntry ("Issue with writing chunk to file. {}".format(err))
+        LogEntry("Issue with writing chunk to file. {}".format(err))
       iChunkLen = len(APIResponse)
       iRowCount += iChunkLen
       dictChunkStatus[iChunkID] = iChunkLen
-      LogEntry  ("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
+      LogEntry("Downloaded {0} {1} for chunk {2}. Total {3} {1} downloaded so far.".format(iChunkLen, strFunction, iChunkID,iRowCount))
       for dictChunkItem in APIResponse:
         lstOutput = []
         if strFunction == "assets":
@@ -278,7 +290,12 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
             else:
               lstOutput.append("No such field "+strfield)
           strLineOut = ",".join(lstOutput)
-          objCSVOut.write(strLineOut+"\n")
+          try:
+            objCSVOut.write(strLineOut+"\n")
+          except PermissionError:
+            LogEntry("unable to write to CSV file, permission denied.",True)
+          except Exception as err:
+            LogEntry("Unexpected error while attempting to write to CSV. Error Details: {}".format(err),True)
 
         if strFunction == "vulns":
           for dictFields in lstDictFields:
@@ -306,7 +323,12 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
               lstOutput.append("No such field "+strfield)
 
           strLineOut = ",".join(lstOutput)
-          objCSVOut.write(strLineOut+"\n")
+          try:
+            objCSVOut.write(strLineOut+"\n")
+          except PermissionError:
+            LogEntry("unable to write to CSV file, permission denied.",True)
+          except Exception as err:
+            LogEntry("Unexpected error while attempting to write to CSV. Error Details: {}".format(err),True)
         else:
           LogEntry("Function {} is unknown".format(strFunction))  
 
@@ -335,10 +357,10 @@ def BulkExport(strFunction,strExportUUID):
       LogEntry("1stExport: " + APIResponse,True)
     elif isinstance(APIResponse,dict):
       strExportUUID = APIResponse['export_uuid']
-      LogEntry ("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
+      LogEntry("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
   strURL = strBaseURL + strAPIFunction + "status"
   while strTotalChunks == "n/a":
-    LogEntry ("Checking for total number of chunks")
+    LogEntry("Checking for total number of chunks")
     APIResponse = MakeAPICall(strURL,strHeader,"get")
     if isinstance(APIResponse,str):
       LogEntry("Numbers of Chunks error, attempt #{}: {}".format(iErrCount, APIResponse))
@@ -357,10 +379,10 @@ def BulkExport(strFunction,strExportUUID):
                 if "total_chunks" in dictValue:
                   strTotalChunks = dictValue["total_chunks"]
                 else:
-                  LogEntry ("Total Chunks not available, trying again")
+                  LogEntry("Total Chunks not available, trying again")
                 if strTotalChunks == 0:
                   strTotalChunks = "n/a"
-                  LogEntry ("Total Chunks is zero, trying again.")
+                  LogEntry("Total Chunks is zero, trying again.")
                 break
                 
   LogEntry("Total Chunks: {}".format(strTotalChunks))
@@ -384,12 +406,12 @@ def BulkExport(strFunction,strExportUUID):
           iChunkCount = len(APIResponse["chunks_available"])
           lstChunks = APIResponse["chunks_available"]
         else:
-          LogEntry ("chunks_available is a {}".format(APIResponse["chunks_available"]))
+          LogEntry("chunks_available is a {}".format(APIResponse["chunks_available"]))
       else:
-        LogEntry ("Somethings wrong, 'chunks_available not in response")
-      LogEntry ("Status: {} | Chunks Available: {} out of {}".format(strStatus,iChunkCount,strTotalChunks))
+        LogEntry("Somethings wrong, 'chunks_available not in response")
+      LogEntry("Status: {} | Chunks Available: {} out of {}".format(strStatus,iChunkCount,strTotalChunks))
       if iChunkCount > 0:
-        LogEntry ("Available Chunks: {}".format(lstChunks))
+        LogEntry("Available Chunks: {}".format(lstChunks))
         lstNotProcessed = []
         for iChunkID in lstChunks:
           if iChunkID not in dictChunkStatus:
@@ -398,7 +420,7 @@ def BulkExport(strFunction,strExportUUID):
           LogEntry("Now fetching chunks {}".format(lstNotProcessed))
           FetchChunks(strFunction,lstNotProcessed,strExportUUID)
   LogEntry("Final status {}".format(strStatus))
-  LogEntry ("Downloaded {} {}".format(iRowCount,strFunction))
+  LogEntry("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
   iElapseSec = tStop - tStart - iTotalSleep
   iMin, iSec = divmod(iElapseSec, 60)
@@ -472,24 +494,24 @@ def main():
   if strOutDir[-1:] != "/":
     strOutDir += "/"
   
-  if not os.path.exists (strLogDir) :
+  if not os.path.exists(strLogDir) :
     os.makedirs(strLogDir)
-    print ("Path '{0}' for log files didn't exists, so I create it!".format(strLogDir))
-  if not os.path.exists (strOutDir) :
+    print("Path '{0}' for log files didn't exists, so I create it!".format(strLogDir))
+  if not os.path.exists(strOutDir) :
     os.makedirs(strOutDir)
-    print ("Path '{0}' for output files didn't exists, so I create it!".format(strOutDir))
+    print("Path '{0}' for output files didn't exists, so I create it!".format(strOutDir))
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
 
-  print ("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
-  print ("Running from: {}".format(strRealPath))
+  print("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
+  print("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
-  print ("The time now is {}".format(dtNow))
-  print ("Logs saved to {}".format(strLogFile))
-  print ("Output files saved to {}".format(strOutDir))
+  print("The time now is {}".format(dtNow))
+  print("Logs saved to {}".format(strLogFile))
+  print("Output files saved to {}".format(strOutDir))
   objLogOut = open(strLogFile,"w",1)
   iConfLoc = 0
   iUUIDLoc = 0
@@ -499,16 +521,16 @@ def main():
     for strArg in lstSysArg:
       if iPos == 0:
         iPos += 1
-        # LogEntry ("skipping first strArg")
+        # LogEntry("skipping first strArg")
         continue
       if strArg[-4:] == ".ini":
         iConfLoc = iPos
-        LogEntry ("Found configuration file in command arguments pos {}".format(iPos))
+        LogEntry("Found configuration file in command arguments pos {}".format(iPos))
       elif "-" in strArg:
         iUUIDLoc = iPos
-        LogEntry ("Found UUID in command line arugment pos {}".format(iPos))
+        LogEntry("Found UUID in command line arugment pos {}".format(iPos))
       else:
-        LogEntry ("unknown argument {} in pos {}. Expect either UUID like e1e742b0-b10c-4f58-931e-568327d62291" 
+        LogEntry("unknown argument {} in pos {}. Expect either UUID like e1e742b0-b10c-4f58-931e-568327d62291" 
                   "or configuration file with .ini extension".format(strArg,iPos))
       iPos += 1
   if iConfLoc > 0:
@@ -523,7 +545,7 @@ def main():
   dictConfig = processConf(strConf_File)
   if strScriptHost in dictConfig:
     strScriptHost = dictConfig[strScriptHost]
-  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
+  LogEntry("Starting {} on {}".format(strScriptName,strScriptHost))
   
   if "Filter" in dictConfig:
     lstStrParts = dictConfig["Filter"].split("|")
@@ -543,7 +565,7 @@ def main():
           dictFilter[lstFilterParts[0]] = lstClean
         else:
           dictFilter[lstFilterParts[0]] = lstFilterParts[1]
-    LogEntry ("Found filter:{}".format(dictFilter))
+    LogEntry("Found filter:{}".format(dictFilter))
   
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
@@ -692,7 +714,7 @@ def main():
       "permission denied.".format(strRAWout),True)
   except Exception as err:
     LogEntry("Unexpected error while attempting to open {} for writing. Error Details: {}".format(strRAWout,err),True)
-  LogEntry ("Raw Output file {} created".format(strRAWout))
+  LogEntry("Raw Output file {} created".format(strRAWout))
 
   iExtLoc = strRAWout.rfind(".")
   strCSVName = strRAWout[:iExtLoc] + ".csv"
@@ -714,23 +736,29 @@ def main():
 
   if iUUIDLoc > 0:
     strExportUUID = sys.argv[iUUIDLoc]
-    LogEntry ("UUID {} provided as an arg".format(strExportUUID))
+    LogEntry("UUID {} provided as an arg".format(strExportUUID))
   else:
     strExportUUID = ""
 
-  # SendNotification ("Starting {} on {}".format(strScriptName, strScriptHost))
-  dictResults={}
-  dictResults = BulkExport (strExportType,strExportUUID)
-  objFileOut.write("]")
-  LogEntry ("Completed processing, here are the stats:")
-  LogEntry ("Downloaded {} {}".format(dictResults["RowCount"],strExportType))
-  LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
+  # SendNotification("Starting {} on {}".format(strScriptName, strScriptHost))
+  dictResults = {}
+  dictResults = BulkExport(strExportType,strExportUUID)
+  try:
+    objFileOut.write("]")
+  except PermissionError:
+    LogEntry("unable to write to out file, permission denied.",True)
+  except Exception as err:
+    LogEntry("Unexpected error while attempting to write to outfile. Error Details: {}".format(err),True)
+
+  LogEntry("Completed processing, here are the stats:")
+  LogEntry("Downloaded {} {}".format(dictResults["RowCount"],strExportType))
+  LogEntry("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
     dictResults["Elapse"],int(dictResults["hours"]),
     int(dictResults["min"]),dictResults["Sec"]))
 
-  LogEntry ("Completed at {}".format(dtNow))
-  LogEntry ("Results save to {}".format(strRAWout))
-  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  LogEntry("Completed at {}".format(dtNow))
+  LogEntry("Results save to {}".format(strRAWout))
+  SendNotification("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
   objFileOut.close()
 
