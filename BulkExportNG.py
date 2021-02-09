@@ -187,8 +187,6 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
     LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
-  iErrCode = ""
-  iErrText = ""
 
   LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
@@ -202,31 +200,31 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
         WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
       LogEntry("post executed")
   except Exception as err:
-    return "Issue with API call. {}".format(err)
-    # CleanExit("due to issue with API, please check the logs")
+    dictError = {}
+    dictError["error"] = "Issue with API call. {}".format(err)
+    # LogEntry (dictError,True)
+    return dictError
 
   if isinstance(WebRequest,requests.models.Response)==False:
     LogEntry("response is unknown type")
-    iErrCode = "ResponseErr"
-    iErrText = "response is unknown type"
+    return {"error":"Response is of unknown type"}
 
   LogEntry("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
     LogEntry(WebRequest.text)
-    iErrCode = WebRequest.status_code
-    iErrText = WebRequest.text
 
   if WebRequest.text[:15].upper() == "<!DOCTYPE HTML>" or WebRequest.text[:6].upper() == "<HTML>":
-    return "ERROR: Response was HTML but I need json"
+    LogEntry(WebRequest.text)
+    return {"error":"Response was HTML but I need json"}
   
-  if iErrCode != "" or WebRequest.status_code !=200:
-    return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
-  else:
-    strRawResults = WebRequest.text
-    try:
-      return WebRequest.json()
-    except Exception as err:
-      return "Issue with converting response to json. Here are the first 99 character of the response: {}".format(WebRequest.text[:99])
+  strRawResults = WebRequest.text
+  try:
+    return WebRequest.json()
+  except Exception as err:
+    dictError = {}
+    dictError["error"] = ("Issue with converting response to json. Here is the error detail: {}\n" 
+          "Here are the first 99 character of the response: {}".format(err,WebRequest.text[:99]))
+    return dictError
 
 def FetchChunks(strFunction,lstChunks, strExportUUID):
 
@@ -244,12 +242,13 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
     LogEntry("Fetching chunk #{} out of {}".format(iChunkID,strTotalChunks))
     strURL = strBaseURL + strAPIFunction + strExportUUID + "/chunks/" + str(iChunkID)
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    if isinstance(APIResponse,str):
+    if isinstance(APIResponse,dict):
+      LogEntry("response is a dict")
       LogEntry("FetchChunks: " + APIResponse)
       strCond = "err"
       while strCond == "err":
         APIResponse = MakeAPICall(strURL,strHeader,"get")
-        if isinstance(APIResponse,str):
+        if isinstance(APIResponse,dict):
           LogEntry("FetchChunks Retry #{}: {}".format(iErrCount, APIResponse))
           strCond = "err"
           iErrCount += 1
@@ -258,9 +257,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
         else:
           LogEntry("FetchChunk Retry Good")
           strCond = "good"
-          iErrCount = 0
-    if isinstance(APIResponse,dict):
-      LogEntry("response is a dict")
+          iErrCount = 0     
     elif isinstance(APIResponse,list):
       strResponse = "{}".format(strRawResults)
       strResponse = strResponse.encode("ascii","ignore")
@@ -331,6 +328,8 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
             LogEntry("Unexpected error while attempting to write to CSV. Error Details: {}".format(err),True)
         else:
           LogEntry("Function {} is unknown".format(strFunction))  
+    else:
+      LogEntry("API Response is of expected type, it is {} only dict or list is expected".format(type(APIResponse)))
 
 def BulkExport(strFunction,strExportUUID):
   global iRowCount
@@ -356,47 +355,50 @@ def BulkExport(strFunction,strExportUUID):
     if isinstance(APIResponse,str):
       LogEntry("1stExport: " + APIResponse,True)
     elif isinstance(APIResponse,dict):
-      strExportUUID = APIResponse['export_uuid']
-      LogEntry("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
+      if "export_uuid" in APIResponse:
+        strExportUUID = APIResponse["export_uuid"]
+        LogEntry("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
+      else:
+        LogEntry("1stExport. No Export UUID in response. Here is what I got: " + APIResponse,True)
   strURL = strBaseURL + strAPIFunction + "status"
   while strTotalChunks == "n/a":
     LogEntry("Checking for total number of chunks")
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    if isinstance(APIResponse,str):
-      LogEntry("Numbers of Chunks error, attempt #{}: {}".format(iErrCount, APIResponse))
-      iErrCount += 1
-      if iErrCount > iMaxRetry:
-        strTotalChunks = "Error"
-        LogEntry("Too many status check errors, moving on")
-    elif isinstance(APIResponse,dict):
+    if isinstance(APIResponse,dict):
       iErrCount = 0
       if "exports" in APIResponse:
         if isinstance(APIResponse["exports"],list):
-            iListSize = len(APIResponse["exports"])
-            LogEntry("there are {} exports in the list".format(iListSize))
-            for dictValue in APIResponse["exports"]:
-              if dictValue["uuid"] == strExportUUID:
-                if "total_chunks" in dictValue:
-                  strTotalChunks = dictValue["total_chunks"]
-                else:
-                  LogEntry("Total Chunks not available, trying again")
-                if strTotalChunks == 0:
-                  strTotalChunks = "n/a"
-                  LogEntry("Total Chunks is zero, trying again.")
-                break
+          iListSize = len(APIResponse["exports"])
+          LogEntry("there are {} exports in the list".format(iListSize))
+          for dictValue in APIResponse["exports"]:
+            if dictValue["uuid"] == strExportUUID:
+              if "total_chunks" in dictValue:
+                strTotalChunks = dictValue["total_chunks"]
+              else:
+                LogEntry("Total Chunks not available, trying again")
+              if strTotalChunks == 0:
+                strTotalChunks = "n/a"
+                LogEntry("Total Chunks is zero, trying again.")
+              break
+      else:
+        LogEntry("No Exports in API Response while checking on number of chunks. Here is what I got, attempt #{}: {}".format(iErrCount,APIResponse))
+        iErrCount += 1
+        if iErrCount > iMaxRetry:
+          strTotalChunks = "Error"
+          LogEntry("Too many status check errors, moving on")
                 
   LogEntry("Total Chunks: {}".format(strTotalChunks))
   strURL = strBaseURL + strAPIFunction + strExportUUID + "/status"
   while strStatus == "PROCESSING":
     APIResponse = MakeAPICall(strURL,strHeader,"get")
-    if isinstance(APIResponse,str):
-      LogEntry("Status check error, attempt #{}: {}".format(iErrCount, APIResponse))
-      iErrCount += 1
-      if iErrCount > iMaxRetry:
-        strStatus = "Error"
-        LogEntry("Too many status check errors, finishing up")
-    elif isinstance(APIResponse,dict):
+    if isinstance(APIResponse,dict):
       iErrCount = 0
+      if "error" in APIResponse or "statusCode" in APIResponse:
+        LogEntry("Status check error, attempt #{}: {}".format(iErrCount, APIResponse))
+        iErrCount += 1
+        if iErrCount > iMaxRetry:
+          strStatus = "Error"
+          LogEntry("Too many status check errors, finishing up")
       if "status" in APIResponse:
         strStatus = APIResponse["status"]
       else:
