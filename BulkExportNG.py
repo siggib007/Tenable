@@ -143,7 +143,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:99]))
+    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -244,7 +244,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
     APIResponse = MakeAPICall(strURL,strHeader,"get")
     if isinstance(APIResponse,dict):
       LogEntry("response is a dict")
-      LogEntry("FetchChunks: " + APIResponse)
+      LogEntry("FetchChunks: {}".format(APIResponse))
       strCond = "err"
       while strCond == "err":
         APIResponse = MakeAPICall(strURL,strHeader,"get")
@@ -293,8 +293,7 @@ def FetchChunks(strFunction,lstChunks, strExportUUID):
             LogEntry("unable to write to CSV file, permission denied.",True)
           except Exception as err:
             LogEntry("Unexpected error while attempting to write to CSV. Error Details: {}".format(err),True)
-
-        if strFunction == "vulns":
+        elif strFunction == "vulns":
           for dictFields in lstDictFields:
             for strKey in dictFields.keys():
               if strKey in dictChunkItem:
@@ -353,13 +352,24 @@ def BulkExport(strFunction,strExportUUID):
   if strExportUUID == "":
     APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
     if isinstance(APIResponse,str):
-      LogEntry("1stExport: " + APIResponse,True)
+      LogEntry("1stExport: {}".format(APIResponse),True)
     elif isinstance(APIResponse,dict):
       if "export_uuid" in APIResponse:
         strExportUUID = APIResponse["export_uuid"]
         LogEntry("Export successfully requested. Confirmation UUID {}".format(strExportUUID))
       else:
-        LogEntry("1stExport. No Export UUID in response. Here is what I got: " + APIResponse,True)
+        if "status" in APIResponse:
+          strAPIStatus = APIResponse["status"]
+        else:
+          strAPIStatus = ""
+        if "message" in APIResponse:
+          strMsg = APIResponse["message"]
+        else:
+          strMsg = ""
+        if strMsg == "":
+          LogEntry("1stExport. No Export UUID in response. Here is what I got: {}".format(APIResponse),True)
+        else:
+          LogEntry("Error {} while initiating export. '{}'".format(strAPIStatus,strMsg),True)
   strURL = strBaseURL + strAPIFunction + "status"
   while strTotalChunks == "n/a":
     LogEntry("Checking for total number of chunks")
