@@ -143,7 +143,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:iSlackLimit]))
+    SendNotification("{} {} on {}: {}".format(strScriptName,strRAWout,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -480,6 +480,7 @@ def main():
   global istrLimit
   global iListLimit
   global lstDictFields
+  global strRAWout
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -772,7 +773,7 @@ def main():
 
   LogEntry("Completed at {}".format(dtNow))
   LogEntry("Results save to {}".format(strRAWout))
-  SendNotification("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification("{} {} completed successfully on {}".format(strScriptName, strRAWout, strScriptHost))
   objLogOut.close()
   objFileOut.close()
 
