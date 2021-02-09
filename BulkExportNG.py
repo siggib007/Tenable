@@ -421,6 +421,8 @@ def BulkExport(strFunction,strExportUUID):
         if len(lstNotProcessed) > 0:
           LogEntry("Now fetching chunks {}".format(lstNotProcessed))
           FetchChunks(strFunction,lstNotProcessed,strExportUUID)
+    else:
+      LogEntry("APIResponse is not a dict, it's a {}. Here is the content: {}".format(type(APIResponse),APIResponse))
   LogEntry("Final status {}".format(strStatus))
   LogEntry("Downloaded {} {}".format(iRowCount,strFunction))
   tStop = time.time()
