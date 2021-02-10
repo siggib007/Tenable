@@ -130,7 +130,7 @@ def SendNotification(strMsg):
       LogEntry(WebRequest.text)
 
 def CleanExit(strCause):
-  SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
+  SendNotification("{}:{} is exiting abnormally on {} {}".format(strScriptName,strTokenName,strScriptHost,strCause))
   try:
     objLogOut.close()
     objFileOut.close()
@@ -143,7 +143,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
-    SendNotification("{} {} on {}: {}".format(strScriptName,strRAWout,strScriptHost,strMsg[:iSlackLimit]))
+    SendNotification("{}:{} on {}: {}".format(strScriptName,strTokenName,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -481,6 +481,7 @@ def main():
   global iListLimit
   global lstDictFields
   global strRAWout
+  global strTokenName
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -732,7 +733,9 @@ def main():
   LogEntry("Raw Output file {} created".format(strRAWout))
 
   iExtLoc = strRAWout.rfind(".")
+  iPathLoc = strRAWout.rfind("/")
   strCSVName = strRAWout[:iExtLoc] + ".csv"
+  strTokenName = strRAWout[iPathLoc+1:iExtLoc]
   
   try:
     objCSVOut = open(strCSVName,"w",1)
@@ -773,7 +776,7 @@ def main():
 
   LogEntry("Completed at {}".format(dtNow))
   LogEntry("Results save to {}".format(strRAWout))
-  SendNotification("{} {} completed successfully on {}".format(strScriptName, strRAWout, strScriptHost))
+  SendNotification("{}:{} completed successfully on {}".format(strScriptName, strTokenName, strScriptHost))
   objLogOut.close()
   objFileOut.close()
 
