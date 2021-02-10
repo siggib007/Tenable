@@ -722,6 +722,12 @@ def main():
     else:
       strRAWout = strOutDir + strScriptName[:iLoc] + "-" + strExportType + ".json"
   
+  strRAWout = strRAWout.replace("\\","/")
+  iExtLoc = strRAWout.rfind(".")
+  iPathLoc = strRAWout.rfind("/")
+  strCSVName = strRAWout[:iExtLoc] + ".csv"
+  strTokenName = strRAWout[iPathLoc+1:iExtLoc]
+  
   try:
     objFileOut = open(strRAWout,"w")
     objFileOut.write("[")
@@ -732,10 +738,6 @@ def main():
     LogEntry("Unexpected error while attempting to open {} for writing. Error Details: {}".format(strRAWout,err),True)
   LogEntry("Raw Output file {} created".format(strRAWout))
 
-  iExtLoc = strRAWout.rfind(".")
-  iPathLoc = strRAWout.rfind("/")
-  strCSVName = strRAWout[:iExtLoc] + ".csv"
-  strTokenName = strRAWout[iPathLoc+1:iExtLoc]
   
   try:
     objCSVOut = open(strCSVName,"w",1)
