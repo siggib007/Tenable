@@ -34,6 +34,13 @@ iErrCount = 0
 lstSysArg = sys.argv
 iSysArgLen = len(lstSysArg)
 
+def getInput(strPrompt):
+  if sys.version_info[0] > 2 :
+    return input(strPrompt)
+  else:
+    print("Please upgrade to Python 3")
+    sys.exit()
+
 def processConf(strConf_File):
 
   LogEntry("Looking for configuration file: {}".format(strConf_File))
@@ -343,29 +350,24 @@ def main():
     else:
       LogEntry("Invalid MaxError, setting to defaults of {}".format(iMaxRetry))
 
-  if "ExportType" in dictConfig:
-    strExportType = dictConfig["ExportType"]
-  else:
-    LogEntry("Export Type not defined in configuration file, aborting",True)
-
   if "Proxies" in dictConfig:
     strProxies = dictConfig["Proxies"]
     dictProxies = {"http":strProxies,"https":strProxies}
   else:
     dictProxies = {}
 
-  strAPIFunction = strExportType + "/export/status"
-  strURL = strBaseURL + strAPIFunction
+  lstJobs = []
 
+  strURL = strBaseURL + "assets/export/status"
   APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
-  print("UUID | Status | Filters | Chunk Size")
   if isinstance(APIResponse,dict):
     if "exports" in APIResponse:
       if isinstance(APIResponse["exports"],list):
         for dictJobs in APIResponse["exports"]:
           if "status" in dictJobs:
             if dictJobs["status"] == "QUEUED" or dictJobs["status"] == "PROCESSING":
-              print ("{} | {} | {} | {} ".format(dictJobs["uuid"],dictJobs["status"],dictJobs["filters"],dictJobs["num_assets_per_chunk"],))
+              dictJobs["type"] = "assets"
+              lstJobs.append(dictJobs)
           else:
             LogEntry("No status in dictJobs, here it what it has{}".format(dictJobs))
       else:
@@ -374,6 +376,55 @@ def main():
       LogEntry("No Exports in the export list, something is messed up.")
   else:
     LogEntry ("API did not return a dict, no idea what to do with type {} with {}".format(type(APIResponse),APIResponse))
+  strURL = strBaseURL + "vulns/export/status"
+  APIResponse = MakeAPICall(strURL,strHeader,"get", dictPayload)
+  if isinstance(APIResponse,dict):
+    if "exports" in APIResponse:
+      if isinstance(APIResponse["exports"],list):
+        for dictJobs in APIResponse["exports"]:
+          if "status" in dictJobs:
+            if dictJobs["status"] == "QUEUED" or dictJobs["status"] == "PROCESSING":
+              dictJobs["type"] = "vulns"
+              lstJobs.append(dictJobs)
+          else:
+            LogEntry("No status in dictJobs, here it what it has{}".format(dictJobs))
+      else:
+        LogEntry("Job list is not a list, how odd")
+    else:
+      LogEntry("No Exports in the export list, something is messed up.")
+  else:
+    LogEntry ("API did not return a dict, no idea what to do with type {} with {}".format(type(APIResponse),APIResponse))
+
+  if len(lstJobs) > 0:
+    print ("\n *** Here is a list of all your inprogress export jobs ****")
+    print("Line # | Type | UUID | Status | Chunk Size")
+    iCount = 1
+    for dictJobs in lstJobs:
+      print ("{} | {} | {} | {} | {} ".format(iCount,dictJobs["type"],dictJobs["uuid"],dictJobs["status"],dictJobs["num_assets_per_chunk"],))
+      iCount += 1
+    
+    iChoice = getInput("Please select line number you wish to cancel, blank to just exit: ")
+
+    if iChoice == "" or iChoice[0].lower() == "q":
+      print("Ok exiting without doing anything")
+    if isInt(iChoice):
+      iChoice = int(iChoice)
+      if iChoice < 1:
+        print("only positive non zero integers are allowed")
+      elif iChoice > len(lstJobs):
+        print("You entered {} but there are only {} jobs".format(iChoice,len(lstJobs)))
+      else:
+        # print("You select: {}".format(lstJobs[iChoice-1]))
+        # strURL = strBaseURL + "vulns/export/status"
+        strURL = "{}{}/export/{}/cancel".format(strBaseURL,lstJobs[iChoice-1]["type"],lstJobs[iChoice-1]["uuid"])
+        APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
+        LogEntry(APIResponse)
+    else:
+      print ("Only integer numbers are valid input.")
+  else:
+    print("No jobs currently in progress")
+
+  LogEntry ("Done")
 
 if __name__ == '__main__':
   main()
