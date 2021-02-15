@@ -522,7 +522,7 @@ def main():
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
 
-  print("This is a script to download Tenable information for a specific PluginID via API. This is running under Python Version {}".format(strVersion))
+  print("This is a script to download Tenable information based on provided filters via API. This is running under Python Version {}".format(strVersion))
   print("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
   print("The time now is {}".format(dtNow))
