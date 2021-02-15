@@ -109,35 +109,7 @@ def processConf(strConf_File):
   LogEntry("Done processing configuration, moving on")
   return dictConfig
 
-def SendNotification(strMsg):
-  if not bNotifyEnabled:
-    LogEntry("Notification not enabled")
-    return
-  dictNotify = {}
-  dictNotify["token"] = dictConfig["NotifyToken"]
-  dictNotify["channel"] = dictConfig["NotifyChannel"]
-  dictNotify["text"]=strMsg[:iSlackLimit]
-  strNotifyParams = urlparse.urlencode(dictNotify)
-  strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
-  bStatus = False
-  try:
-    WebRequest = requests.get(strURL,timeout=iTimeOut)
-  except Exception as err:
-    LogEntry("Issue with sending notifications. {}".format(err))
-  if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry("response is unknown type")
-  else:
-    dictResponse = json.loads(WebRequest.text)
-    if isinstance(dictResponse,dict):
-      if "ok" in dictResponse:
-        bStatus = dictResponse["ok"]
-        LogEntry("Successfully sent slack notification\n{} ".format(strMsg))
-    if not bStatus or WebRequest.status_code != 200:
-      LogEntry("Problme: Status Code:[] API Response OK={}")
-      LogEntry(WebRequest.text)
-
 def CleanExit(strCause):
-  SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost,strCause))
   try:
     objLogOut.close()
   except:
@@ -149,7 +121,6 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -222,7 +193,6 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
 
 def main():
   global ISO
-  global bNotifyEnabled
   global dictConfig
   global dictPayload
   global iMinQuiet
@@ -232,9 +202,6 @@ def main():
   global objLogOut
   global strBaseDir
   global strBaseURL
-  global strNotifyChannel
-  global strNotifyToken
-  global strNotifyURL
   global strScriptHost
   global strScriptName
   global tLastCall
@@ -242,11 +209,7 @@ def main():
   global strHeader
   global iMaxRetry
   global dictProxies
-  global iSlackLimit
 
-  strNotifyToken = None
-  strNotifyChannel = None
-  strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   iRowCount = 0
   tStart=time.time()
@@ -271,9 +234,6 @@ def main():
   if not os.path.exists(strLogDir) :
     os.makedirs(strLogDir)
     print("Path '{0}' for log files didn't exists, so I create it!".format(strLogDir))
-  if not os.path.exists(strOutDir) :
-    os.makedirs(strOutDir)
-    print("Path '{0}' for output files didn't exists, so I create it!".format(strOutDir))
 
   strScriptName = os.path.basename(sys.argv[0])
   iLoc = strScriptName.rfind(".")
@@ -294,9 +254,6 @@ def main():
 
   strScriptHost = platform.node().upper()
   dictConfig = processConf(strConf_File)
-  if strScriptHost in dictConfig:
-    strScriptHost = dictConfig[strScriptHost]
-  LogEntry("Starting {} on {}".format(strScriptName,strScriptHost))
 
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
@@ -305,32 +262,12 @@ def main():
   else:
     LogEntry("API Keys not provided, exiting.",True)
 
-  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
-    bNotifyEnabled = True
-  else:
-    bNotifyEnabled = False
-    LogEntry("Missing configuration items for Slack notifications, "
-      "turning slack notifications off")
-
-  if "TextLimit" in dictConfig:
-    if isInt(dictConfig["TextLimit"]):
-      iSlackLimit = int(dictConfig["TextLimit"])
-    else:
-      LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
-
   if "APIBaseURL" in dictConfig:
     strBaseURL = dictConfig["APIBaseURL"]
   else:
     CleanExit("No Base API provided")
   if strBaseURL[-1:] != "/":
     strBaseURL += "/"
-
-  if "NotifyEnabled" in dictConfig:
-    if dictConfig["NotifyEnabled"].lower() == "yes" \
-      or dictConfig["NotifyEnabled"].lower() == "true":
-      bNotifyEnabled = True
-    else:
-      bNotifyEnabled = False
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -414,8 +351,6 @@ def main():
       elif iChoice > len(lstJobs):
         print("You entered {} but there are only {} jobs".format(iChoice,len(lstJobs)))
       else:
-        # print("You select: {}".format(lstJobs[iChoice-1]))
-        # strURL = strBaseURL + "vulns/export/status"
         strURL = "{}{}/export/{}/cancel".format(strBaseURL,lstJobs[iChoice-1]["type"],lstJobs[iChoice-1]["uuid"])
         APIResponse = MakeAPICall(strURL,strHeader,"post", dictPayload)
         LogEntry(APIResponse)
