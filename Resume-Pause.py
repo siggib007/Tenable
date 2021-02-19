@@ -143,27 +143,27 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry("It's been {} seconds since last API call".format(fDelta))
+  # LogEntry("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
     iDelta = int(fDelta)
     iAddWait = iMinQuiet - iDelta
-    LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
+    # LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
 
-  LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
+  # LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry("get executed")
+      # LogEntry("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
         WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
         WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry("post executed")
+      # LogEntry("post executed")
   except Exception as err:
     dictError = {}
     dictError["error"] = "Issue with API call. {}".format(err)
@@ -174,7 +174,7 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
     LogEntry("response is unknown type")
     return {"error":"Response is of unknown type"}
 
-  LogEntry("call resulted in status code {}".format(WebRequest.status_code))
+  # LogEntry("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
     LogEntry(WebRequest.text)
 
@@ -183,9 +183,16 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
     return {"error":"Response was HTML but I need json"}
 
   strRawResults = WebRequest.text
+  if strRawResults == "":
+    if WebRequest.status_code == 200:
+      return {"Success":"Empty response. Status:200 OK"}
+    else:
+      return {"error":"Empty response. Status:{}".format(WebRequest.status_code)}
+
   try:
     return WebRequest.json()
   except Exception as err:
+    LogEntry("Exception while converting response to json. Here is what the the response was:'{}'".format(strRawResults))
     dictError = {}
     dictError["error"] = ("Issue with converting response to json. Here is the error detail: {}\n"
           "Here are the first 99 character of the response: {}".format(err,WebRequest.text[:99]))
