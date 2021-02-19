@@ -109,7 +109,35 @@ def processConf(strConf_File):
   LogEntry("Done processing configuration, moving on")
   return dictConfig
 
+def SendNotification(strMsg):
+  if not bNotifyEnabled:
+    LogEntry("Notification not enabled")
+    return
+  dictNotify = {}
+  dictNotify["token"] = dictConfig["NotifyToken"]
+  dictNotify["channel"] = dictConfig["NotifyChannel"]
+  dictNotify["text"]=strMsg[:iSlackLimit]
+  strNotifyParams = urlparse.urlencode(dictNotify)
+  strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
+  bStatus = False
+  try:
+    WebRequest = requests.get(strURL,timeout=iTimeOut)
+  except Exception as err:
+    LogEntry("Issue with sending notifications. {}".format(err))
+  if isinstance(WebRequest,requests.models.Response)==False:
+    LogEntry("response is unknown type")
+  else:
+    dictResponse = json.loads(WebRequest.text)
+    if isinstance(dictResponse,dict):
+      if "ok" in dictResponse:
+        bStatus = dictResponse["ok"]
+        LogEntry("Successfully sent slack notification\n{} ".format(strMsg))
+    if not bStatus or WebRequest.status_code != 200:
+      LogEntry("Problme: Status Code:[] API Response OK={}")
+      LogEntry(WebRequest.text)
+
 def CleanExit(strCause):
+  SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost,strCause))
   try:
     objLogOut.close()
   except:
@@ -121,6 +149,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
+    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -216,6 +245,15 @@ def main():
   global strHeader
   global iMaxRetry
   global dictProxies
+  global bNotifyEnabled
+  global strNotifyChannel
+  global strNotifyToken
+  global strNotifyURL
+  global iSlackLimit
+  
+  strNotifyToken = None
+  strNotifyChannel = None
+  strNotifyURL = None
 
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
   iRowCount = 0
@@ -264,6 +302,10 @@ def main():
   strScriptHost = platform.node().upper()
   dictConfig = processConf(strConf_File)
 
+  if strScriptHost in dictConfig:
+    strScriptHost = dictConfig[strScriptHost]
+  LogEntry("Starting {} on {}".format(strScriptName,strScriptHost))
+
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
       'Content-type':'application/json',
@@ -277,6 +319,11 @@ def main():
     CleanExit("No Base API provided")
   if strBaseURL[-1:] != "/":
     strBaseURL += "/"
+
+  if "ConsoleName" in dictConfig:
+    strConsole = dictConfig["ConsoleName"]
+  else:
+    strConsole = "unknown"
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -302,6 +349,19 @@ def main():
   else:
     dictProxies = {}
 
+  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
+    bNotifyEnabled = True
+  else:
+    bNotifyEnabled = False
+    LogEntry("Missing configuration items for Slack notifications, "
+      "turning slack notifications off")
+
+  if "TextLimit" in dictConfig:
+    if isInt(dictConfig["TextLimit"]):
+      iSlackLimit = int(dictConfig["TextLimit"])
+    else:
+      LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
+
   if iSysArgLen > 1:
     strFunction = lstSysArg[1]
   else:
@@ -318,11 +378,13 @@ def main():
   else:
     LogEntry("Only resume and pause are valid options.",True)
     
+  lstOutMsg = []
   strURL = strBaseURL + "scans"
   APIResponse = MakeAPICall(strURL,strHeader,"get",dictPayload)
   if isinstance(APIResponse,dict):
     if "scans" in APIResponse:
       if isinstance(APIResponse["scans"],list):
+        LogEntry("There are {} scan jobs.".format(len(APIResponse["scans"])))
         for dictScans in APIResponse["scans"]:
           if "name" in dictScans:
             strName = dictScans["name"]
@@ -337,11 +399,25 @@ def main():
             if dictScans["type"] != "":
               if "status" in dictScans:
                 if dictScans["status"] == dictStatus[strFunction]:
-                  LogEntry("Job {} state: {}. Issuing {} command".format(strName,dictScans["status"],strFunction))
+                  strOut = "Job '{}' state: {}. Issuing {} command".format(strName,dictScans["status"],strFunction)
+                  LogEntry(strOut)
+                  lstOutMsg.append(strOut)
                   APIResponse = MakeAPICall(strURL,strHeader,"post",dictPayload)
-                  LogEntry(APIResponse)
+                  if isinstance(APIResponse,dict):
+                    if "Success" in APIResponse:
+                      lstOutMsg.append("Success")
+                      LogEntry("Success")
+                    elif "error" in APIResponse:
+                      lstOutMsg.append(APIResponse["error"])
+                      LogEntry(APIResponse["error"])
+                    else:
+                      lstOutMsg.append(APIResponse)
+                      LogEntry(APIResponse)
+                  else:
+                    lstOutMsg.append(APIResponse)
+                    LogEntry(APIResponse)
                 else:
-                  LogEntry("Job {} state: {}. Doing Nothing".format(strName,dictScans["status"]))
+                  LogEntry("Job '{}' state: {}. Doing Nothing".format(strName,dictScans["status"]))
               else:
                 LogEntry("No status")
             else:
@@ -355,7 +431,11 @@ def main():
   else:
     LogEntry("API Response not a dict")
 
-  LogEntry ("Done")
+  if len(lstOutMsg) > 0:
+    strOut = "\n".join(lstOutMsg)
+    SendNotification("{}- {}:\n{}".format(strScriptName, strConsole, strOut))
+  SendNotification("{} - {} completed successfully on {}".format(strScriptName, strConsole, strScriptHost))
+  objLogOut.close()
 
 if __name__ == '__main__':
   main()
