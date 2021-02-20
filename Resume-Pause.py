@@ -1,5 +1,5 @@
 '''
-Tenable API Script to pause jobs in progress or start paused jobs. 
+Tenable API Script to pause jobs in progress or start paused jobs.
 Author Siggi Bjarnason Copyright 2020
 
 Following packages need to be installed as administrator
@@ -137,7 +137,8 @@ def SendNotification(strMsg):
       LogEntry(WebRequest.text)
 
 def CleanExit(strCause):
-  SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost,strCause))
+  if strCause != "":
+    SendNotification("{}:{} is exiting abnormally on {} {}".format(strScriptName,strConsole,strScriptHost,strCause))
   try:
     objLogOut.close()
   except:
@@ -149,7 +150,8 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format(strScriptName,strScriptHost,strMsg[:iSlackLimit]))
+    strMsg = "[Abnormal Exit] " + strMsg
+    SendNotification("{}:{} on {}: {}".format(strScriptName,strConsole,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -250,7 +252,8 @@ def main():
   global strNotifyToken
   global strNotifyURL
   global iSlackLimit
-  
+  global strConsole
+
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
@@ -295,9 +298,34 @@ def main():
   print("Output files saved to {}".format(strOutDir))
   objLogOut = open(strLogFile,"w",1)
 
-  iLoc = lstSysArg[0].rfind(".")
-  strConf_File = lstSysArg[0][:iLoc] + ".ini"
-  LogEntry("Setting conf file to: {}".format(strConf_File))
+  iConfLoc = 0
+  iCmdLoc = 0
+  iPos = 0
+
+  if iSysArgLen > 1:
+    for strArg in lstSysArg:
+      if iPos == 0:
+        iPos += 1
+        # LogEntry("skipping first strArg")
+        continue
+      if strArg[-4:] == ".ini":
+        iConfLoc = iPos
+        LogEntry("Found configuration file in command arguments pos {}".format(iPos))
+      elif strArg.lower() == "resume" or strArg.lower() == "pause":
+        iCmdLoc = iPos
+        LogEntry("Found function in command line arugment pos {}".format(iPos))
+      else:
+        LogEntry("unknown argument {} in pos {}. Expect either function directive of 'pause' or 'resume'"
+                  "or configuration file with .ini extension".format(strArg,iPos))
+      iPos += 1
+  if iConfLoc > 0:
+    strConf_File = lstSysArg[iConfLoc]
+    LogEntry("Conf Argument provided, setting conf file to: {}".format(strConf_File))
+  else:
+    iLoc = lstSysArg[0].rfind(".")
+    strConf_File = lstSysArg[0][:iLoc] + ".ini"
+    LogEntry("No Argument found, setting conf file to: {}".format(strConf_File))
+
 
   strScriptHost = platform.node().upper()
   dictConfig = processConf(strConf_File)
@@ -324,6 +352,11 @@ def main():
     strConsole = dictConfig["ConsoleName"]
   else:
     strConsole = "unknown"
+
+  if "ExcludeTag" in dictConfig:
+    strExclude = dictConfig["ExcludeTag"]
+  else:
+    strExclude = ""
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -362,22 +395,16 @@ def main():
     else:
       LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
 
-  if iSysArgLen > 1:
-    strFunction = lstSysArg[1]
+  if iCmdLoc > 0:
+    strFunction = lstSysArg[iCmdLoc].lower()
+    LogEntry("Got function directive of {}".format(strFunction))
   else:
-    LogEntry("No command provided. Use parameter resume or pause to indicate desired function",True)
-  
-  LogEntry("Got command of {}".format(strFunction))
+    LogEntry("No valid function directive provided. Use parameter resume or pause to indicate desired function",True)
 
   dictStatus = {}
   dictStatus["resume"] = "paused"
   dictStatus["pause"] = "running"
 
-  if strFunction.lower() == "resume" or strFunction.lower() == "pause":
-    strFunction = strFunction.lower()
-  else:
-    LogEntry("Only resume and pause are valid options.",True)
-    
   lstOutMsg = []
   strURL = strBaseURL + "scans"
   APIResponse = MakeAPICall(strURL,strHeader,"get",dictPayload)
@@ -399,23 +426,26 @@ def main():
             if dictScans["type"] != "":
               if "status" in dictScans:
                 if dictScans["status"] == dictStatus[strFunction]:
-                  strOut = "Job '{}' state: {}. Issuing {} command".format(strName,dictScans["status"],strFunction)
-                  LogEntry(strOut)
-                  lstOutMsg.append(strOut)
-                  APIResponse = MakeAPICall(strURL,strHeader,"post",dictPayload)
-                  if isinstance(APIResponse,dict):
-                    if "Success" in APIResponse:
-                      lstOutMsg.append("Success")
-                      LogEntry("Success")
-                    elif "error" in APIResponse:
-                      lstOutMsg.append(APIResponse["error"])
-                      LogEntry(APIResponse["error"])
+                  if strExclude in strName and strExclude != "":
+                    LogEntry("Job '{}' contains exclude tag of '{}'. Doing Nothing".format(strName,strExclude))
+                  else:
+                    strOut = "Job '{}' state: {}. Issuing {} command".format(strName,dictScans["status"],strFunction)
+                    LogEntry(strOut)
+                    lstOutMsg.append(strOut)
+                    APIResponse = MakeAPICall(strURL,strHeader,"post",dictPayload)
+                    if isinstance(APIResponse,dict):
+                      if "Success" in APIResponse:
+                        lstOutMsg.append("Success")
+                        LogEntry("Success")
+                      elif "error" in APIResponse:
+                        lstOutMsg.append(APIResponse["error"])
+                        LogEntry(APIResponse["error"])
+                      else:
+                        lstOutMsg.append(APIResponse)
+                        LogEntry(APIResponse)
                     else:
                       lstOutMsg.append(APIResponse)
                       LogEntry(APIResponse)
-                  else:
-                    lstOutMsg.append(APIResponse)
-                    LogEntry(APIResponse)
                 else:
                   LogEntry("Job '{}' state: {}. Doing Nothing".format(strName,dictScans["status"]))
               else:

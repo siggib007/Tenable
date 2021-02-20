@@ -130,7 +130,8 @@ def SendNotification(strMsg):
       LogEntry(WebRequest.text)
 
 def CleanExit(strCause):
-  SendNotification("{}:{} is exiting abnormally on {} {}".format(strScriptName,strTokenName,strScriptHost,strCause))
+  if strCause != "":
+    SendNotification("{}:{} is exiting abnormally on {} {}".format(strScriptName,strTokenName,strScriptHost,strCause))
   try:
     objLogOut.close()
     objFileOut.close()
@@ -143,6 +144,7 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print(strMsg)
   if bAbort:
+    strMsg = "[Abnormal Exit] " + strMsg
     SendNotification("{}:{} on {}: {}".format(strScriptName,strTokenName,strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
