@@ -106,6 +106,7 @@ def SendNotification(strMsg):
   if not bNotifyEnabled:
     LogEntry("Notification not enabled")
     return
+  strMsg = "{}:{} {}".format(strScriptName, strTokenName, strMsg)
   dictNotify = {}
   dictNotify["token"] = dictConfig["NotifyToken"]
   dictNotify["channel"] = dictConfig["NotifyChannel"]
@@ -131,7 +132,7 @@ def SendNotification(strMsg):
 
 def CleanExit(strCause):
   if strCause != "":
-    SendNotification("{}:{} is exiting abnormally on {} {}".format(strScriptName,strTokenName,strScriptHost,strCause))
+    SendNotification("Exiting abnormally on {} {}".format(strScriptHost,strCause))
   try:
     objLogOut.close()
     objFileOut.close()
@@ -145,7 +146,7 @@ def LogEntry(strMsg,bAbort=False):
   print(strMsg)
   if bAbort:
     strMsg = "[Abnormal Exit] " + strMsg
-    SendNotification("{}:{} on {}: {}".format(strScriptName,strTokenName,strScriptHost,strMsg[:iSlackLimit]))
+    SendNotification("On {}: {}".format(strScriptHost,strMsg[:iSlackLimit]))
     CleanExit("")
 
 def isInt(CheckValue):
@@ -180,27 +181,27 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
 
   fTemp = time.time()
   fDelta = fTemp - tLastCall
-  LogEntry("It's been {} seconds since last API call".format(fDelta))
+  # LogEntry("It's been {} seconds since last API call".format(fDelta))
   if fDelta > iMinQuiet:
     tLastCall = time.time()
   else:
     iDelta = int(fDelta)
     iAddWait = iMinQuiet - iDelta
-    LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
+    # LogEntry("It has been less than {} seconds since last API call, waiting {} seconds".format(iMinQuiet,iAddWait))
     iTotalSleep += iAddWait
     time.sleep(iAddWait)
 
-  LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
+  # LogEntry("Doing a {} to URL: {} with payload of '{}'".format(strMethod,strURL,dictPayload))
   try:
     if strMethod.lower() == "get":
       WebRequest = requests.get(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry("get executed")
+      # LogEntry("get executed")
     if strMethod.lower() == "post":
       if dictPayload != "":
         WebRequest = requests.post(strURL, json= dictPayload, headers=strHeader, verify=False, proxies=dictProxies)
       else:
         WebRequest = requests.post(strURL, headers=strHeader, verify=False, proxies=dictProxies)
-      LogEntry("post executed")
+      # LogEntry("post executed")
   except Exception as err:
     dictError = {}
     dictError["error"] = "Issue with API call. {}".format(err)
@@ -208,15 +209,16 @@ def MakeAPICall(strURL, strHeader, strMethod,  dictPayload=""):
     return dictError
 
   if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry("response is unknown type")
+    SendNotification("response is unknown type")
     return {"error":"Response is of unknown type"}
 
   LogEntry("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry(WebRequest.text)
+    SendNotification(WebRequest.text)
 
   if WebRequest.text[:15].upper() == "<!DOCTYPE HTML>" or WebRequest.text[:6].upper() == "<HTML>":
     LogEntry(WebRequest.text)
+    SendNotification("Failure: Response was HTML but I need json")
     return {"error":"Response was HTML but I need json"}
   
   strRawResults = WebRequest.text
@@ -762,7 +764,7 @@ def main():
   else:
     strExportUUID = ""
 
-  # SendNotification("Starting {} on {}".format(strScriptName, strScriptHost))
+  SendNotification("Starting on {}".format(strScriptHost))
   dictResults = {}
   dictResults = BulkExport(strExportType,strExportUUID)
   try:
@@ -780,7 +782,7 @@ def main():
 
   LogEntry("Completed at {}".format(dtNow))
   LogEntry("Results save to {}".format(strRAWout))
-  SendNotification("{}:{} completed successfully on {}".format(strScriptName, strTokenName, strScriptHost))
+  SendNotification("Completed successfully on {}".format(strScriptHost))
   objLogOut.close()
   objFileOut.close()
 
