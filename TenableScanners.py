@@ -19,25 +19,31 @@ import pymysql
 # End imports
 
 #avoid insecure warning
-# requests.packages.urllib3.disable_warnings()
+requests.urllib3.disable_warnings()
 
-#Define few things
+#Define few defaults
 iTimeOut = 120
+iSlackLimit = 950
 iMinQuiet = 2 # Minimum time in seconds between API calls
 ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
+
+#Initialize couple of variables
 tLastCall = None
 iTotalSleep = None
 
 
 def SendNotification (strMsg):
+  LogEntry ("{}".format(strMsg))
   if not bNotifyEnabled:
-    return "notifications not enabled"
+    LogEntry ("notify not enabled")
+    return
+  strMsg = strScriptName + ": " + strMsg
   dictNotify = {}
-  dictNotify["token"] = strNotifyToken
-  dictNotify["channel"] = strNotifyChannel
-  dictNotify["text"]=strMsg[:199]
+  dictNotify["token"] = dictConfig["NotifyToken"]
+  dictNotify["channel"] = dictConfig["NotifyChannel"]
+  dictNotify["text"]=strMsg[:iSlackLimit]
   strNotifyParams = urlparse.urlencode(dictNotify)
-  strURL = strNotifyURL + "?" + strNotifyParams
+  strURL = dictConfig["NotificationURL"] + "?" + strNotifyParams
   bStatus = False
   try:
     WebRequest = requests.get(strURL,timeout=iTimeOut)
@@ -50,9 +56,9 @@ def SendNotification (strMsg):
     if isinstance(dictResponse,dict):
       if "ok" in dictResponse:
         bStatus = dictResponse["ok"]
-        LogEntry ("Successfully sent slack notification\n{} ".format(strMsg))
+        LogEntry ("Successfully sent slack notification")
     if not bStatus or WebRequest.status_code != 200:
-      LogEntry ("Problme: Status Code:[] API Response OK={}")
+      LogEntry ("Problem: Status Code:[] API Response OK={}")
       LogEntry (WebRequest.text)
 
 def CleanExit(strCause):
@@ -66,44 +72,22 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print (strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
     CleanExit("")
 
-def processConf():
-  global strBaseURL
-  global strUserName
-  global strPWD
-  global strNotifyURL
-  global strNotifyToken
-  global strNotifyChannel
-  global strHeader
-  global strFormat
-  global bNotifyEnabled
-  global strServer
-  global strDBUser
-  global strDBPWD
-  global strInitialDB
-
-
-  strBaseURL=None
-  strUserName=None
-  strPWD=None
-  strNotifyURL=None
-  strNotifyToken=None
-  strNotifyChannel=None
-  strHeader=None
-  strFormat="%Y-%m-%dT%H:%M:%S"
+def processConf(strConf_File):
 
   LogEntry ("Looking for configuration file: {}".format(strConf_File))
   if os.path.isfile(strConf_File):
     LogEntry ("Configuration File exists")
   else:
-    LogEntry ("Can't find configuration file {}, make sure it is the same directory as this script".format(strConf_File))
+    LogEntry ("Can't find configuration file {}, make sure it is the same directory "
+      "as this script and named the same with ini extension".format(strConf_File))
     LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
     objLogOut.close()
     sys.exit(9)
 
   strLine = "  "
+  dictConfig = {}
   LogEntry ("Reading in configuration")
   objINIFile = open(strConf_File,"r")
   strLines = objINIFile.readlines()
@@ -120,42 +104,26 @@ def processConf():
       strConfParts = strLine.split("=")
       strVarName = strConfParts[0].strip()
       strValue = strConfParts[1].strip()
-      strFullValue = strConfParts[1].strip()
-      if strVarName == "APIBaseURL":
-        strBaseURL = strValue
-      if strVarName == "AccessKey":
-        strUserName = strValue
-      if strVarName == "Secret":
-        strPWD = strFullValue
-      if strVarName == "NotificationURL":
-        strNotifyURL = strValue
-      if strVarName == "NotifyChannel":
-        strNotifyChannel = strValue
-      if strVarName == "NotifyToken":
-        strNotifyToken = strValue
-      if strVarName == "DateTimeFormat":
-        strFormat = strValue
-      if strVarName == "Server":
-         strServer = strValue
-      if strVarName == "dbUser":
-        strDBUser = strValue
-      if strVarName == "dbPWD":
-        strDBPWD = strFullValue
-      if strVarName == "InitialDB":
-        strInitialDB = strValue
-
-
-  strHeader={'Content-type':'application/json','X-ApiKeys':'accessKey='+strUserName+';secretKey='+strPWD}
-  if strNotifyToken is None or strNotifyChannel is None or strNotifyURL is None:
-    bNotifyEnabled = False
-    LogEntry("Missing configuration items for Slack notifications, turning slack notifications off")
-  else:
-    bNotifyEnabled = True
-
-  if strBaseURL[-1:] != "/":
-    strBaseURL += "/"
+      dictConfig[strVarName] = strValue
+      if strVarName == "include":
+        LogEntry ("Found include directive: {}".format(strValue))
+        strValue = strValue.replace("\\","/")
+        if strValue[:1] == "/" or strValue[1:3] == ":/":
+          LogEntry("include directive is absolute path, using as is")
+        else:
+          strValue = strBaseDir + strValue
+          LogEntry("include directive is relative path,"
+            " appended base directory. {}".format(strValue))
+        if os.path.isfile(strValue):
+          LogEntry ("file is valid")
+          objINIFile = open(strValue,"r")
+          strLines += objINIFile.readlines()
+          objINIFile.close()
+        else:
+          LogEntry ("invalid file in include directive")
 
   LogEntry ("Done processing configuration, moving on")
+  return dictConfig
 
 def isInt (CheckValue):
   # function to safely check if a value can be interpreded as an int
@@ -217,7 +185,6 @@ def getInput(strPrompt):
     else:
       print("Please upgrade to Python 3")
       sys.exit()
-# end getInput
 
 def SQLConn (strServer,strDBUser,strDBPWD,strInitialDB):
   try:
@@ -280,7 +247,6 @@ def ValidReturn(lsttest):
   else:
     return False
 
-
 def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   global tLastCall
@@ -339,6 +305,8 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 def ScannerDBUpdate(dictResults,dbConn):
 
   lstInvalidTypes = []
+  dictStatusChange = {}
+  dictStatusOff = {}
   if "scanners" in dictResults:
     if isinstance(dictResults["scanners"],list):
       for dictScan in dictResults["scanners"]:
@@ -539,8 +507,14 @@ def ScannerDBUpdate(dictResults,dbConn):
               strStatus = "'{}'".format(DBClean(dictScan["status"]))
             else:
               strStatus = "NULL"
+            if "network_name" in dictScan:
+              strNetName = "'{}'".format(DBClean(dictScan["network_name"]))
+            else:
+              strNetName = "NULL"
+            if strNetName == "'Default'":
+              strNetName = "'Magenta'"
             strLocation = "'{}'".format(strLocation)
-            strSQL = "select * from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
+            strSQL = "select vcStatus from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
             lstReturn = SQLQuery (strSQL,dbConn)
             if not ValidReturn(lstReturn):
               LogEntry ("Unexpected: {}".format(lstReturn))
@@ -551,24 +525,29 @@ def ScannerDBUpdate(dictResults,dbConn):
                 " vcDistro, dtLastConnect, dtLastModified, vcPluginSet, vcName,"
                 " vcPlatform, vcType, vcUIbuild, vcUIversion, vcUUID, vcRemoteUUID,"
                 " vcStatus, iServerID, iAltServerID, vcAltServerSource, vcScanIP, vcIPList,"
-                " vcScanType, vcLocation, dtLastAPIUpdate)"
+                " vcScanType, vcLocation, vcNetName, dtLastAPIUpdate)"
                 " VALUES ({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {},"
-                " {}, {}, {}, {}, {}, {}, {}, now());".format(iScannerID, strCreateddt, strDistro, strLastConnDT,
+                " {}, {}, {}, {}, {}, {}, {}, {}, now());".format(iScannerID, strCreateddt, strDistro, strLastConnDT,
                   strLastModDT, strPluginSet, strScannerName, strPlatform, strType, strUIBuild,
                   strUIVersion, strUUID, strRemoteUUID, strStatus, iServerID, iAltServerID, strAltSource,
-                  strScanIP, strIPList, strScanType, strLocation))
+                  strScanIP, strIPList, strScanType, strLocation, strNetName))
             elif lstReturn[0] == 1:
               LogEntry ("Scanner {} exists, need to update it".format(strScannerName))
+              strOldStatus = lstReturn[1][0][0]
+              if strOldStatus != strStatus[1:-1]:
+                dictStatusChange[strScannerName[1:-1]] = strStatus[1:-1]
+              if strStatus[1:-1] == "off":
+                dictStatusOff[strScannerName[1:-1]] = strLastConnDT[1:-1]
               strSQL = ("UPDATE tblTNBLscanners SET dtCreated = {}, vcDistro = {},"
                 " dtLastConnect = {}, dtLastModified = {}, vcPluginSet = {},"
                 " vcName = {}, vcPlatform = {}, vcType = {}, vcUIbuild = {},"
                 " vcUIversion = {}, vcUUID = {}, vcRemoteUUID = {}, vcStatus = {},"
                 " iServerID = {}, iAltServerID = {}, vcAltServerSource = {},"
-                " vcScanIP = {}, vcIPList = {}, vcScanType = {}, vcLocation = {}, dtLastAPIUpdate = now()"
+                " vcScanIP = {}, vcIPList = {}, vcScanType = {}, vcLocation = {}, vcNetName = {}, dtLastAPIUpdate = now()"
                 " WHERE iScannerID = {};".format(strCreateddt, strDistro, strLastConnDT,
                   strLastModDT, strPluginSet, strScannerName, strPlatform, strType, strUIBuild,
                   strUIVersion, strUUID, strRemoteUUID, strStatus, iServerID, iAltServerID,
-                  strAltSource, strScanIP, strIPList, strScanType, strLocation, iScannerID))
+                  strAltSource, strScanIP, strIPList, strScanType, strLocation, strNetName, iScannerID))
             else:
               LogEntry ("Something is horrible wrong,"
                 " there are {} scanners with id of {}".format(lstReturn[0],iScannerID),True)
@@ -590,6 +569,17 @@ def ScannerDBUpdate(dictResults,dbConn):
   if len(lstInvalidTypes) > 0:
     SendNotification("There were {} scanners that could not be put into groups, "
       " please check logs for details.".format(len(lstInvalidTypes)))
+  if len(dictStatusChange) > 0:
+    strNotify = "{} Scanners changed status since last time:\n".format(len(dictStatusChange))
+    for strTemp in dictStatusChange:
+      strNotify += "{} New status: {}\n".format(strTemp,dictStatusChange[strTemp])
+    SendNotification(strNotify)
+  if len(dictStatusOff) > 0:
+    strNotify = "{}  Scanners are currently in off state:\n".format(len(dictStatusOff))
+    for strTemp in dictStatusOff:
+      strNotify += "{} Last connected: {}\n".format(strTemp,dictStatusOff[strTemp])
+    SendNotification(strNotify)
+
   return lstInvalidTypes
 
 def ScanGroupDBUpdate(dictResults, dbConn):
@@ -646,7 +636,6 @@ def ScanGroupDBUpdate(dictResults, dbConn):
   else:
     LogEntry("No scanner_pools in results, here are the first 99 character of the response: {}".format(dictResults[99:]))
 
-
 def Scanner2Group(dbConn):
   LogEntry("fetching all scanner members for all the defined groups")
   # strSQL = "select * from tblTNBLScanGroups;"
@@ -695,14 +684,22 @@ def Scanner2Group(dbConn):
     else:
       LogEntry("No scanner_pools in results, here are the first 99 character of the response: {}".format(dictResults[99:]))
 
-
 def main():
   global objLogOut
-  global strConf_File
   global strScriptName
   global strScriptHost
   global tLastCall
   global iTotalSleep
+  global bNotifyEnabled
+  global strFormat
+  global strHeader
+  global strBaseURL
+  global strBaseDir
+  global dictConfig
+  global iSlackLimit
+
+  strFormat = "%Y-%m-%dT%H:%M:%S"
+  bNotifyEnabled = False
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -730,7 +727,6 @@ def main():
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
   dictPayload = {}
-  strScriptHost = platform.node().upper()
 
 
   print ("This is a script to download a list of all Tenable scanners information via API. This is running under Python Version {}".format(strVersion))
@@ -743,7 +739,89 @@ def main():
   tLastCall = 0
   iTotalSleep = 0
   tStart=time.time()
-  processConf()
+  dictConfig = processConf(strConf_File)
+  
+  strScriptHost = platform.node().upper()
+  if strScriptHost in dictConfig:
+    strScriptHost = dictConfig[strScriptHost]
+
+  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
+
+  if "AccessKey" in dictConfig and "Secret" in dictConfig:
+    strHeader={
+      'Content-type':'application/json',
+      'X-ApiKeys':'accessKey=' + dictConfig["AccessKey"] + ';secretKey=' + dictConfig["Secret"]}
+  else:
+    LogEntry("API Keys not provided, exiting.",True)
+
+  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
+    bNotifyEnabled = True
+  else:
+    bNotifyEnabled = False
+    LogEntry("Missing configuration items for Slack notifications, "
+      "turning slack notifications off")
+
+  if "APIBaseURL" in dictConfig:
+    strBaseURL = dictConfig["APIBaseURL"]
+  else:
+    CleanExit("No Base API provided")
+  if strBaseURL[-1:] != "/":
+    strBaseURL += "/"
+
+  if "NotifyEnabled" in dictConfig:
+    if dictConfig["NotifyEnabled"].lower() == "yes" \
+      or dictConfig["NotifyEnabled"].lower() == "true":
+      bNotifyEnabled = True
+    else:
+      bNotifyEnabled = False
+
+  if "DateTimeFormat" in dictConfig:
+    strFormat = dictConfig["DateTimeFormat"]
+  
+  if "TimeOut" in dictConfig:
+    if isInt(dictConfig["TimeOut"]):
+      iTimeOut = int(dictConfig["TimeOut"])
+    else:
+      LogEntry("Invalid timeout, setting to defaults of {}".format(iTimeOut))
+
+  if "TextLimit" in dictConfig:
+    if isInt(dictConfig["TextLimit"]):
+      iSlackLimit = int(dictConfig["TextLimit"])
+    else:
+      LogEntry("Invalid TextLimit, setting to defaults of {}".format(iSlackLimit))
+
+  if "SecondsBeetweenChecks" in dictConfig:
+    if isInt(dictConfig["SecondsBeetweenChecks"]):
+      iSecSleep = int(dictConfig["SecondsBeetweenChecks"])
+    else:
+      LogEntry("Invalid sleep time, setting to defaults of {}".format(iSecSleep))
+
+  if "MinQuiet" in dictConfig:
+    if isInt(dictConfig["MinQuiet"]):
+      iMinQuiet = int(dictConfig["MinQuiet"])
+    else:
+      LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
+
+  if "Server" in dictConfig:
+    strServer = dictConfig["Server"]
+  else:
+    CleanExit("No DB Server provided")
+
+  if "dbUser" in dictConfig:
+    strDBUser = dictConfig["dbUser"]
+  else:
+    CleanExit("No dbUser provided")
+
+  if "dbPWD" in dictConfig:
+    strDBPWD = dictConfig["dbPWD"]
+  else:
+    CleanExit("No dbPWD provided")
+
+  if "InitialDB" in dictConfig:
+    strInitialDB = dictConfig["InitialDB"]
+  else:
+    CleanExit("No InitialDB provided")
+
   dbConn = ""
   dbConn = SQLConn (strServer,strDBUser,strDBPWD,strInitialDB)
 
@@ -775,7 +853,7 @@ def main():
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds. "
     "Of which {4} seconds was spent sleeping due to API backoff protocol.".format(iElapseSec,iHours,iMin,iSec,iTotalSleep))
 
-  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
+  SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
 
 if __name__ == '__main__':

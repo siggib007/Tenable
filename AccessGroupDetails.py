@@ -1,5 +1,5 @@
 '''
-Tenable API Script to sync Target Groups to Tags
+Tenable API Script to pull details about Access Groups and write to CSV
 Author Siggi Bjarnason Copyright 2020
 
 Following packages need to be installed as administrator
@@ -36,6 +36,16 @@ def formatUnixDate(iDate):
     iDate = iDate / 1000
   structTime = time.localtime(iDate)
   return time.strftime(strFormat,structTime)
+
+def ISO8601Date2Str(strDate):
+  #   Converst ISO 8601 Date of 1994-11-05T13:15:30Z to 1994-11-05 13:15:30 GMT
+  if strDate == "":
+    return ""
+  if strDate is None:
+    return ""
+  strTemp = CleanStr(strDate)
+  strTemp = strTemp.replace("T"," ")
+  return strTemp.replace("Z"," GMT")
 
 def processConf(strConf_File):
 
@@ -89,8 +99,7 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  if not bNotifyEnabled:
-    LogEntry ("notify not enabled")
+  if True:
     return
   global strNotifyURL
   global strNotifyToken
@@ -222,9 +231,11 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
+    LogEntry ("Doing a {} to URL: {} with payload of '{}' resulted in {} error".format(
+      strMethod,strURL,dictPayload,iErrCode))
+    LogEntry (WebRequest.text)
 
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
@@ -240,66 +251,101 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
-def ValidateIP(strToCheck):
-	Quads = strToCheck.split(".")
-	if len(Quads) != 4:
-		return False
-	# end if
-
-	for Q in Quads:
-		try:
-			iQuad = int(Q)
-		except ValueError:
-			return False
-		# end try
-
-		if iQuad > 255 or iQuad < 0:
-			return False
-		# end if
-
-	return True
-
-def CheckMembers(lstValues):
-  lstIPv4 = []
-  lstHost = []
-  dictReturn = {}
-  for strValue in lstValues:
-    if strValue.find(":") > 0:
-      #Value is an IPv6, unable to process right now
-      pass
-    elif strValue.find("-") > 0:
-      lstValueParts = strValue.split("-")
-      if len(lstValueParts) == 2:
-        if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
-          lstIPv4.append(strValue.strip())
-        else:
-          lstHost.append(strValue.strip())
-      else:
-        lstHost.append(strValue)
-    elif strValue.find("/") > 0 and len(strValue) > 6:
-      lstValueParts = strValue.split("/")
-      bTemp = True
-      if len(lstValueParts) != 2:
-        bTemp = False
-      try:
-        iValue = int(lstValueParts[1])
-      except ValueError:
-        bTemp = False
-      if iValue < 1 or iValue > 32:
-        bTemp = False
-      if not ValidateIP(lstValueParts[0]):
-        bTemp = False
-      if bTemp:
-        lstIPv4.append(strValue.strip())
-      else:
-        lstHost.append(strValue.strip())
-    elif ValidateIP(strValue): 
-      lstIPv4.append(strValue.strip())
+def GetGroups():
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "v2/access-groups"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Pulling a base list of Groups")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "access_groups" in APIResponse:
+    if isinstance(APIResponse["access_groups"],list):
+      return APIResponse["access_groups"]
     else:
-      lstHost.append(strValue.strip())
-  dictReturn["ipv4"] = ",".join(lstIPv4)
-  dictReturn["dns"] = lstHost
-  return dictReturn
+        LogEntry("access_groups is not a list, no idea what to do with this: {}".format(APIResponse),True)
+  else:
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+
+def GroupDetails(lstGroups):
+  dictPayload = {}
+  strMethod = "get"
+  
+  LogEntry ("Starting to fetch details. Creating the CSV file {} ".format(strCSVName))
+  objCSVOut = open(strCSVName,"w",1)
+  objCSVOut.write("Group ID,Name,Type,Create at,Created By,Updated at,Updated By,Rules,Principals\n")
+  
+  for dictGroup in lstGroups:
+    if "id" in dictGroup:
+      strID = dictGroup["id"]
+    else:
+      LogEntry("No ID in record, skipping")
+      continue
+    if "created_at" in dictGroup:
+      strCreateDT = ISO8601Date2Str(dictGroup["created_at"])
+    else:
+      strCreateDT = "No Create Date"
+    if "updated_at" in dictGroup:
+      strUpdateDT = ISO8601Date2Str(dictGroup["updated_at"])
+    else:
+      strUpdateDT = "No update Date"
+    if "name" in dictGroup:
+      strName = dictGroup["name"]
+    else:
+      strName = "NoName"
+    if "access_group_type" in dictGroup:
+      strType = dictGroup["access_group_type"]
+    else:
+      strType = "No Type"
+    if "created_by_name" in dictGroup:
+      strCreateName = dictGroup["created_by_name"]
+    else:
+      strCreateName = "No create name"
+    if "updated_by_name" in dictGroup:
+      strUpdateName = dictGroup["updated_by_name"]
+    else:
+      strUpdateName = "No update name"
+    LogEntry("Fetching Group {} | {} ".format(strName,strID))
+    strAPIFunction = "v2/access-groups/" + str(strID)
+    strURL = strBaseURL + strAPIFunction
+    APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+    if "rules" in APIResponse:
+      if isinstance(APIResponse["rules"],list):
+        # strRules = "List of {} rules".format(len(APIResponse["rules"]))
+        dictRules=APIResponse["rules"][0]
+        if isinstance(dictRules["terms"],list):
+          iTerms = len(dictRules["terms"])
+          if iTerms < 5:
+            strTerms = "|".join(dictRules["terms"])
+          else:
+            strTerms = "list of {} items".format(iTerms)
+        else:
+          strTerms = "Terms is not a list"
+        strRules = "{} {} {} ".format(dictRules["type"],dictRules["operator"],strTerms)
+      else:
+        strRules = "Rules does not contain a list"
+    else:
+      strRules = "There are no rules"
+    if "principals" in APIResponse:
+      if isinstance(APIResponse["principals"],list):
+        # strPrincipals = "List of {} principals".format(len(APIResponse["principals"]))
+        lstPrincipals = []
+        for dictPrincipals in APIResponse["principals"]:
+          if dictPrincipals["type"] == "all_users":
+            strPType = dictPrincipals["principal_name"]
+          else:
+            strPType = " {} {} ".format(dictPrincipals["type"],dictPrincipals["principal_name"])
+          strTemp = " {} {} ".format(strPType,";".join(dictPrincipals["permissions"]))
+          lstPrincipals.append(strTemp)
+        strPrincipals = "|".join(lstPrincipals)
+      else:
+        strPrincipals = "principals does not contain a list"
+    else:
+      strPrincipals = "There are no principals"
+
+    objCSVOut.write("{},{},{},{},{},{},{},{},{} \n".format(strID,strName,strType,strCreateDT,strCreateName,
+      strUpdateDT,strUpdateName,strRules,strPrincipals))
+
+  objCSVOut.close()
 
 def main():
   global ISO
@@ -317,16 +363,15 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global strBaseURL
+  global strHeader
+  global strCSVName
 
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  iRowCount = 1
-  iMaxMembers = 10000
   tStart=time.time()
-
-  dictCount = {}  
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -342,7 +387,6 @@ def main():
   
   iLoc = sys.argv[0].rfind(".")
   strConf_File = sys.argv[0][:iLoc] + ".ini"
-  strCacheFile = sys.argv[0][:iLoc] + ".cache"
 
   if not os.path.exists (strLogDir) :
     os.makedirs(strLogDir)
@@ -352,8 +396,9 @@ def main():
   iLoc = strScriptName.rfind(".")
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
+  strScriptHost = platform.node().upper()
 
-  print ("This is a script to sync Target Group to Tags via API. This is running under Python Version {}".format(strVersion))
+  print ("This is a script to pull details on Access Groups via API. This is running under Python Version {}".format(strVersion))
   print ("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
   print ("The time now is {}".format(dtNow))
@@ -361,12 +406,6 @@ def main():
   objLogOut = open(strLogFile,"w",1)
   
   dictConfig = processConf(strConf_File)
-
-  strScriptHost = platform.node().upper()
-  if strScriptHost in dictConfig:
-    strScriptHost = dictConfig[strScriptHost]
-
-  LogEntry ("Starting {} on {}".format(strScriptName,strScriptHost))
 
   if "AccessKey" in dictConfig and "Secret" in dictConfig:
     strHeader={
@@ -398,6 +437,8 @@ def main():
   
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
+  else:
+    strFormat = ""
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -410,133 +451,15 @@ def main():
       iMinQuiet = int(dictConfig["MinQuiet"])
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
-
-  if "MaxMembers" in dictConfig:
-    if isInt(dictConfig["MaxMembers"]):
-      iMaxMembers = int(dictConfig["MaxMembers"])
-    else:
-      LogEntry("Invalid MaxMembers, setting to defaults of {}".format(iMaxMembers))
-
-  if os.path.isfile(strCacheFile):
-    objCache = open(strCacheFile,"r")
-    strLines = objCache.readline()
-    objCache.close()
-    if isFloat(strLines):
-      iLastRan = float(strLines)
-      LogEntry("Found last ran as {} ".format(iLastRan))
-    else:
-      LogEntry("Last ran time stored as {} which is not a valid int.".format(strLines))
-      iLastRan = time.time()
-      iLastRan -= 604800 # subtracting 7 days from today as default
+  
+  if "OutFile" in dictConfig:
+    strCSVName = dictConfig["OutFile"]
   else:
-    LogEntry("No last ran time found")
-    iLastRan = time.time()
-    iLastRan -= 604800 # subtracting 7 days from today as default
-  LogEntry("Last ran time set to {} which is {}".format(iLastRan,formatUnixDate(iLastRan)))
-  objCache = open(strCacheFile,"w",1)
-  objCache.write(str(time.time()))
-  objCache.close()
-  LogEntry("Saved current time to cache as last ran time")
+    LogEntry("no output provided, unable to continue",True)
 
-  dictPayload = {}
-  dictAllValues = {}
-  strMethod = "get"
-  strAPIFunction = "tags/values"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of existing Tag Values")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "values" in APIResponse:
-    if isinstance(APIResponse["values"],list):
-        for dictValue in APIResponse["values"]:
-            strValueID = dictValue["uuid"]
-            strValue = dictValue["value"]
-            dictAllValues[strValue] = strValueID
-    else:
-        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
-  else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
 
-  strMethod = "get"
-  strAPIFunction = "target-groups/"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Now Pulling all Target Groups and transfering them to Tag Values")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-
-  if "target_groups" in APIResponse:
-    if isinstance(APIResponse["target_groups"],list):
-        iTGSize = len(APIResponse["target_groups"])
-        for dictTG in APIResponse["target_groups"]:
-          strType = dictTG["type"]
-          strMembers = dictTG["members"]
-          strName = dictTG["name"]
-          iLastModified = dictTG["last_modification_date"]
-          dtLastModified = formatUnixDate(iLastModified)
-          LogEntry ("Group {}:{} last updated {} which is {} ".format(strType,strName,iLastModified,dtLastModified))
-          if iLastModified > iLastRan:
-            LogEntry ("Group has been modified since last run")
-          else:
-            LogEntry ("No change since last run, skipping")
-            continue
-          if strName == "Default":
-            LogEntry ("Skipping the default group")
-            continue
-          lstMembers = strMembers.split(",")
-          iMemberCount = len(lstMembers)
-          if iMemberCount < iMaxMembers:
-            dictMembers = CheckMembers(lstMembers)
-          else:
-            LogEntry("Skipping this group, it has {} entries, which exceeds the max of {}".format(iMemberCount,iMaxMembers))
-            continue
-          strID = dictTG["id"]
-          dictCount[strName] = iMemberCount
-          LogEntry ("Processing group {} with ID {}. Contains {} entries. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
-          dictPayload = {}
-          dictFilterObj = {}
-          dictFilters = {}
-          dictFilters["asset"] = {}
-          dictFilters["asset"]["or"] = []
-          if dictMembers["ipv4"] != "":
-            dictFilterObj["field"] = "ipv4"
-            dictFilterObj["operator"] = "eq"
-            dictFilterObj["value"] = dictMembers["ipv4"]
-            dictFilters["asset"]["or"].append(dictFilterObj.copy())
-          dictFilterObj = {}
-          if dictMembers["dns"] != "":
-            for strMember in dictMembers["dns"]:
-              dictFilterObj["field"] = "fqdn"
-              dictFilterObj["operator"] = "match"
-              dictFilterObj["value"] = strMember 
-              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
-              dictFilterObj["field"] = "netbios_name"
-              dictFilterObj["operator"] = "match"
-              dictFilterObj["value"] = strMember 
-              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
-          dictPayload["filters"] = dictFilters
-          if strName in dictAllValues:
-            LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
-            strAPIFunction = "tags/values/{}".format(dictAllValues[strName])
-            strMethod = "put"
-            strAction = "update"
-          else:
-            LogEntry ("Creating a new value with name and members of the group")
-            dictPayload["category_name"] = strType + "TG"
-            dictPayload["value"] = strName
-            dictPayload["description"] = "Created by a sync script from Target Group ID {}".format(strID)
-            strMethod = "post"
-            strAPIFunction = "tags/values/"
-            strAction = "create"
-
-          strURL = strBaseURL + strAPIFunction
-          LogEntry("Submitting request to {}".format(strAction))
-          APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-          if isinstance(APIResponse,dict):
-            if "uuid" in APIResponse:
-              LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
-            else:
-              LogEntry("No UUID\n{}".format(APIResponse),True)
-          else:
-            LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
-          iRowCount += 1
+  lstAllGroups = GetGroups()
+  GroupDetails(lstAllGroups)
 
   LogEntry("Done!")
 

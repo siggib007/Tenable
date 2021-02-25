@@ -35,11 +35,11 @@ def VersionCmp(strOld, strNew):
   lstOldParts = strOld.split(".")
   lstNewParts = strNew.split(".")
   if len(lstOldParts) != 3 or len(lstNewParts) != 3:
-    LogEntry("Invalid versions")
+    SendNotification("Invalid versions during version compare in {} ".format(strScriptName))
     return False
-  elif not isInt(lstOldParts[0]) and not isInt(lstOldParts[1]) and not isInt(lstOldParts[2]) \
-     and not isInt(lstNewParts[0]) and not isInt(lstNewParts[1]) and  not isInt(lstNewParts[2]):
-      LogEntry("Invalid versions")
+  elif not isInt(lstOldParts[0]) or not isInt(lstOldParts[1]) or not isInt(lstOldParts[2]) \
+     or not isInt(lstNewParts[0]) or not isInt(lstNewParts[1]) or  not isInt(lstNewParts[2]):
+      SendNotification("Invalid versions during version compare in {} ".format(strScriptName))
       return False
 
   if lstNewParts[0] > lstOldParts[0]:
@@ -109,7 +109,9 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
+  LogEntry ("Trying to send notification for: {} ".format(strMsg))
   if not bNotifyEnabled:
+    LogEntry ("notify not enabled")
     return
   global strNotifyURL
   global strNotifyToken
@@ -242,6 +244,30 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
+def FetchNewVer ():
+  dictPayload = {}
+  dictResult = {}
+  strMethod = "get"
+  strAPIFunction = "downloads/api/v2/pages/nessus-agents"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Pulling a list of existing Nessus Agent releases")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "releases" in APIResponse:
+    if "latest" in APIResponse["releases"]:
+      for strKey in APIResponse["releases"]["latest"].keys():
+        if strKey[:13] == "Nessus Agents":
+          if isinstance(APIResponse["releases"]["latest"][strKey],list):
+            dictResult["NewVer"] = APIResponse["releases"]["latest"][strKey][0]["version"]
+            dictResult["ReleaseDT"] = APIResponse["releases"]["latest"][strKey][0]["product_release_date"]
+            LogEntry ("Latest Version is {} with release date of {} ".format(dictResult["NewVer"],dictResult["ReleaseDT"]))
+          else:
+            LogEntry ("Latest release of {} is not list, this can't be.".format(strKey),True)
+    else:
+      LogEntry ("No latest branch in the release list, can't deal",True)
+  else:
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+  return dictResult
+
 def main():
   global ISO
   global bNotifyEnabled
@@ -257,6 +283,8 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global strHeader
+  global strBaseURL
 
   strNotifyToken = None
   strNotifyChannel = None
@@ -335,36 +363,20 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
+  
+  # Check for new version
   LogEntry ("Last known version was {} ".format(strLastVer))
-  dictPayload = {}
-  strMethod = "get"
-  strAPIFunction = "downloads/api/v2/pages/nessus-agents"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of existing Nessus Agent releases")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "releases" in APIResponse:
-    if "latest" in APIResponse["releases"]:
-      for strKey in APIResponse["releases"]["latest"].keys():
-        if strKey[:13] == "Nessus Agents":
-          if isinstance(APIResponse["releases"]["latest"][strKey],list):
-            strNewVer = APIResponse["releases"]["latest"][strKey][0]["version"]
-            strReleaseDT = APIResponse["releases"]["latest"][strKey][0]["release_date"]
-            LogEntry ("Latest Version is {} with release date of {} ".format(strNewVer,strReleaseDT))
-            bNew = VersionCmp(strLastVer,strNewVer)
-            if bNew:
-              LogEntry ("You have a new version")
-              # Create a CR 
-            else:
-              LogEntry ("Current version is either the same or older")
-            objCache = open(strCacheFile,"w",1)
-            objCache.write(str(strNewVer))
-            objCache.close()
-          else:
-            LogEntry ("Latest release of {} is not list, this can't be.".format(strKey),True)
-    else:
-      LogEntry ("No latest branch in the release list, can't deal",True)
+  dictResult = FetchNewVer()
+  strNewVer = dictResult["NewVer"]
+  objCache = open(strCacheFile,"w",1)
+  objCache.write(str(strNewVer))
+  objCache.close()  
+  bNew = VersionCmp(strLastVer,strNewVer)
+  if bNew:
+    LogEntry ("You have a new version")
+    # Create a CR 
   else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+    LogEntry ("Current version is either the same or older")
 
   LogEntry("Done!")
 

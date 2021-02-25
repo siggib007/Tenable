@@ -1,5 +1,5 @@
 '''
-Tenable API Script to sync Target Groups to Tags
+Tenable API Script to sync Agent Groups to Tags
 Author Siggi Bjarnason Copyright 2020
 
 Following packages need to be installed as administrator
@@ -89,8 +89,7 @@ def processConf(strConf_File):
   return dictConfig
 
 def SendNotification (strMsg):
-  if not bNotifyEnabled:
-    LogEntry ("notify not enabled")
+  if True:
     return
   global strNotifyURL
   global strNotifyToken
@@ -222,9 +221,11 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
 
   # LogEntry ("call resulted in status code {}".format(WebRequest.status_code))
   if WebRequest.status_code != 200:
-    LogEntry (WebRequest.text)
     iErrCode = WebRequest.status_code
     iErrText = WebRequest.text
+    LogEntry ("Doing a {} to URL: {} with payload of '{}' resulted in {} error".format(
+      strMethod,strURL,dictPayload,iErrCode))
+    LogEntry (WebRequest.text)
 
   if iErrCode != "" or WebRequest.status_code !=200:
     return "There was a problem with your request. HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
@@ -240,66 +241,182 @@ def CleanStr(strOld):
   strTemp = strTemp.replace('\n','')
   return strTemp.strip()
 
-def ValidateIP(strToCheck):
-	Quads = strToCheck.split(".")
-	if len(Quads) != 4:
-		return False
-	# end if
-
-	for Q in Quads:
-		try:
-			iQuad = int(Q)
-		except ValueError:
-			return False
-		# end try
-
-		if iQuad > 255 or iQuad < 0:
-			return False
-		# end if
-
-	return True
-
-def CheckMembers(lstValues):
-  lstIPv4 = []
-  lstHost = []
-  dictReturn = {}
-  for strValue in lstValues:
-    if strValue.find(":") > 0:
-      #Value is an IPv6, unable to process right now
-      pass
-    elif strValue.find("-") > 0:
-      lstValueParts = strValue.split("-")
-      if len(lstValueParts) == 2:
-        if ValidateIP(lstValueParts[0]) and ValidateIP(lstValueParts[1]):
-          lstIPv4.append(strValue.strip())
-        else:
-          lstHost.append(strValue.strip())
-      else:
-        lstHost.append(strValue)
-    elif strValue.find("/") > 0 and len(strValue) > 6:
-      lstValueParts = strValue.split("/")
-      bTemp = True
-      if len(lstValueParts) != 2:
-        bTemp = False
-      try:
-        iValue = int(lstValueParts[1])
-      except ValueError:
-        bTemp = False
-      if iValue < 1 or iValue > 32:
-        bTemp = False
-      if not ValidateIP(lstValueParts[0]):
-        bTemp = False
-      if bTemp:
-        lstIPv4.append(strValue.strip())
-      else:
-        lstHost.append(strValue.strip())
-    elif ValidateIP(strValue): 
-      lstIPv4.append(strValue.strip())
+def GetValues():
+  dictAllValues = {}
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "tags/values"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Pulling a list of existing Tag Values")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "values" in APIResponse:
+    if isinstance(APIResponse["values"],list):
+        for dictValue in APIResponse["values"]:
+            strValueID = dictValue["uuid"]
+            strValue = dictValue["value"]
+            dictAllValues[strValue] = strValueID
     else:
-      lstHost.append(strValue.strip())
-  dictReturn["ipv4"] = ",".join(lstIPv4)
-  dictReturn["dns"] = lstHost
-  return dictReturn
+        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
+  else:
+    LogEntry ("Unepxected results: {}".format(APIResponse),True)
+  return dictAllValues
+
+def GetGroups():
+  dictPayload = {}
+  strMethod = "get"
+  strAPIFunction = "scanners/scanner_id/agent-groups/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Now Pulling a list of all Agent Groups")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  dictAllGroups = {}
+  if "groups" in APIResponse:
+    if isinstance(APIResponse["groups"],list):
+      for dictAG in APIResponse["groups"]:
+        strID = dictAG["id"]
+        strGroupName = dictAG["name"]
+        iLastModified = dictAG["last_modification_date"]
+        dtLastModified = formatUnixDate(iLastModified)
+        LogEntry ("Group {} last updated {} which is {} ".format(strGroupName,iLastModified,dtLastModified))
+        if iLastModified > iLastRan:
+          LogEntry ("Group has been modified since last run, adding to list")
+        else:
+          LogEntry ("No change since last run, skipping")
+          continue
+        if strGroupName == "Default":
+          LogEntry ("Skipping the default group")
+          continue
+        dictAllGroups[strGroupName] = strID
+    else:
+      LogEntry("No list in groups, can't do anything",True)
+  else:
+    LogEntry("no group in response, unable to proceed",True)
+  return dictAllGroups
+
+def GroupDetails(iGroupID):
+  dictPayload = {}
+  strMethod = "get"
+  lstAssets = []
+
+  strAPIFunction = "scanners/agents/agent-groups/" + str(iGroupID)
+  strURL = strBaseURL + strAPIFunction
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "agents" in APIResponse:
+    if isinstance(APIResponse["agents"],list):
+      for dictAgent in APIResponse["agents"]:
+        LogEntry ("{} {}".format(dictAgent["name"],dictAgent["uuid"]))
+        lstAssets.append({"id":dictAgent["uuid"],"name":dictAgent["name"]})
+    else:
+      LogEntry("No list under agents, can not deal",True)
+  else:
+    LogEntry("No agents in response, no idea what to do",True)
+  return lstAssets
+
+def GetAssetID(strHostName):
+  dictPayload = {}
+  dictParams = {}
+  strAssetID = ""
+
+  strMethod = "get"
+  dictParams["filter.0.filter"] = "host.target"
+  dictParams["filter.0.quality"] = "match"
+  dictParams["filter.0.value"] = strHostName
+  dictParams["filter.1.filter"] = "fqdn"
+  dictParams["filter.1.quality"] = "match"
+  dictParams["filter.1.value"] = strHostName
+  strParams = urlparse.urlencode(dictParams)
+
+  strAPIFunction = "workbenches/assets"
+  strURL = strBaseURL + strAPIFunction + "?" + strParams
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "assets" in APIResponse:
+    if isinstance(APIResponse["assets"],list):
+      if len(APIResponse["assets"]) == 0:
+        LogEntry("Empty response for {}".format(strHostName))
+      for dictAsset in APIResponse["assets"]:
+        strAssetID = dictAsset["id"]
+        if "has_agent" in dictAsset:
+          if dictAsset["has_agent"]:
+            LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
+            continue
+          else:
+            LogEntry("Instance of {} with ID of {} has no agent".format(strHostName,strAssetID))
+        else:
+          LogEntry("No 'has_agent'")
+    else:
+      LogEntry("No list under assets, can not deal",True)
+  else:
+    LogEntry("No assets in response, no idea what to do",True)
+  return strAssetID
+
+def Tenable2AssetID(strTenableID,strHostName):
+  dictPayload = {}
+  dictParams = {}
+  strAssetID = ""
+
+  strTenableID = strTenableID.replace("-","")
+  strMethod = "get"
+  dictParams["filter.0.filter"] = "tenable_uuid"
+  dictParams["filter.0.quality"] = "eq"
+  dictParams["filter.0.value"] = strTenableID
+
+  strParams = urlparse.urlencode(dictParams)
+
+  strAPIFunction = "workbenches/assets"
+  strURL = strBaseURL + strAPIFunction + "?" + strParams
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if "assets" in APIResponse:
+    if isinstance(APIResponse["assets"],list):
+      if len(APIResponse["assets"]) == 0:
+        LogEntry("Empty response for {}".format(strHostName))
+      for dictAsset in APIResponse["assets"]:
+        strAssetID = dictAsset["id"]
+        LogEntry ("{} Asset ID is {}".format(strHostName,strAssetID))
+    else:
+      LogEntry("No list under assets, can not deal",True)
+  else:
+    LogEntry("No assets in response, no idea what to do",True)
+  return strAssetID
+
+def CreateTag(strGroupName,iGroupID):
+  dictPayload = {}
+
+  dictPayload["category_name"] = "AgentGroups"
+  dictPayload["value"] = strGroupName
+  dictPayload["description"] = "Created by script from Agent Group ID {}".format(iGroupID)
+  strMethod = "post"
+  strAPIFunction = "tags/values/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry("Submitting request to create")
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,dict):
+    if "uuid" in APIResponse:
+      strTagUUID = APIResponse["uuid"]
+      LogEntry("Tag Value created successfully. ID:{}".format(APIResponse["uuid"]))
+    else:
+      LogEntry("No UUID\n{}".format(APIResponse),True)
+  else:
+    LogEntry("Response for group {} is not dictionary\n{}".format(strGroupName, APIResponse))
+  return strTagUUID
+
+def TagAssets(strTagUUID,lstAssets):
+  lstTags = []
+  lstTags.append(strTagUUID)
+  dictPayload = {}
+  dictPayload["action"] = "add"
+  dictPayload["assets"] = lstAssets
+  dictPayload["tags"] = lstTags
+  strMethod = "post"
+  strAPIFunction = "tags/assets/assignments/"
+  strURL = strBaseURL + strAPIFunction
+  LogEntry ("Applying tags by calling {} with payload of {}".format(strURL,dictPayload))
+  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+  if isinstance(APIResponse,dict):
+    if "job_uuid" in APIResponse:
+      LogEntry("Job submitted successfully. Job UUID:{}".format(APIResponse["job_uuid"]))
+    else:
+      LogEntry("No job UUID\n{}".format(APIResponse))
+  else:
+    LogEntry("Response is not dictionary\n{}".format(APIResponse))
 
 def main():
   global ISO
@@ -317,16 +434,15 @@ def main():
   global strScriptName
   global tLastCall
   global tStart
+  global strBaseURL
+  global strHeader
+  global iLastRan
 
   strNotifyToken = None
   strNotifyChannel = None
   strNotifyURL = None
   ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
-  iRowCount = 1
-  iMaxMembers = 10000
   tStart=time.time()
-
-  dictCount = {}  
 
   strBaseDir = os.path.dirname(sys.argv[0])
   strRealPath = os.path.realpath(sys.argv[0])
@@ -353,7 +469,7 @@ def main():
   strLogFile = strLogDir + strScriptName[:iLoc] + ISO + ".log"
   strVersion = "{0}.{1}.{2}".format(sys.version_info[0],sys.version_info[1],sys.version_info[2])
 
-  print ("This is a script to sync Target Group to Tags via API. This is running under Python Version {}".format(strVersion))
+  print ("This is a script to sync Agent Group to Tags via API. This is running under Python Version {}".format(strVersion))
   print ("Running from: {}".format(strRealPath))
   dtNow = time.asctime()
   print ("The time now is {}".format(dtNow))
@@ -396,8 +512,24 @@ def main():
     else:
       bNotifyEnabled = False
   
+  if "DiffOnly" in dictConfig:
+    if dictConfig["DiffOnly"].lower() == "yes" \
+      or dictConfig["DiffOnly"].lower() == "true":
+      bDiffOnly = True
+    else:
+      bDiffOnly = False
+
   if "DateTimeFormat" in dictConfig:
     strFormat = dictConfig["DateTimeFormat"]
+  else:
+    strFormat = ""
+
+  if "FilterCriteria" in dictConfig:
+    strFilter = dictConfig["FilterCriteria"]
+  else:
+    strFilter = ""
+
+  iFilterLen = len(strFilter)
 
   if "TimeOut" in dictConfig:
     if isInt(dictConfig["TimeOut"]):
@@ -411,133 +543,60 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  if "MaxMembers" in dictConfig:
-    if isInt(dictConfig["MaxMembers"]):
-      iMaxMembers = int(dictConfig["MaxMembers"])
+  if bDiffOnly:
+    if os.path.isfile(strCacheFile):
+      objCache = open(strCacheFile,"r")
+      strLines = objCache.readline()
+      objCache.close()
+      if isFloat(strLines):
+        iLastRan = float(strLines)
+        LogEntry("Found last ran as {} ".format(iLastRan))
+      else:
+        LogEntry("Last ran time stored as {} which is not a valid floating number, using defaults.".format(strLines))
+        iLastRan = 0.0 # defaulting to beginging of time
+        # iLastRan = time.time()
+        # iLastRan -= 604800 # subtracting 7 days from today as default
     else:
-      LogEntry("Invalid MaxMembers, setting to defaults of {}".format(iMaxMembers))
-
-  if os.path.isfile(strCacheFile):
-    objCache = open(strCacheFile,"r")
-    strLines = objCache.readline()
-    objCache.close()
-    if isFloat(strLines):
-      iLastRan = float(strLines)
-      LogEntry("Found last ran as {} ".format(iLastRan))
-    else:
-      LogEntry("Last ran time stored as {} which is not a valid int.".format(strLines))
-      iLastRan = time.time()
-      iLastRan -= 604800 # subtracting 7 days from today as default
+      LogEntry("No last ran time found, using defaults")
+      iLastRan = 0.0 # defaulting to beginging of time
+      # iLastRan = time.time()
+      # iLastRan -= 604800 # subtracting 7 days from today as default
+    strOut =str(time.time()) 
   else:
-    LogEntry("No last ran time found")
-    iLastRan = time.time()
-    iLastRan -= 604800 # subtracting 7 days from today as default
+    strOut = "0.0"
+    iLastRan = 0.0 # defaulting to beginging of time
   LogEntry("Last ran time set to {} which is {}".format(iLastRan,formatUnixDate(iLastRan)))
   objCache = open(strCacheFile,"w",1)
-  objCache.write(str(time.time()))
+  objCache.write(strOut)
   objCache.close()
   LogEntry("Saved current time to cache as last ran time")
 
-  dictPayload = {}
-  dictAllValues = {}
-  strMethod = "get"
-  strAPIFunction = "tags/values"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Pulling a list of existing Tag Values")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-  if "values" in APIResponse:
-    if isinstance(APIResponse["values"],list):
-        for dictValue in APIResponse["values"]:
-            strValueID = dictValue["uuid"]
-            strValue = dictValue["value"]
-            dictAllValues[strValue] = strValueID
+  dictAllValues = GetValues()
+  dictAllGroups = GetGroups()
+
+  lstAssetID = []
+  for strGroupName in dictAllGroups.keys():
+    if strFilter == "":
+      strFilter = strGroupName
+      iFilterLen = len(strFilter)
+    if strGroupName[:iFilterLen] == strFilter:
+      LogEntry("Now Pulling details about group {}".format(strGroupName))
+      lstAssets = GroupDetails(dictAllGroups[strGroupName])
+      LogEntry("Now getting AssetID for each Asset in the group")
+      for dictAsset in lstAssets:
+        # lstAssetID.append (GetAssetID(dictAsset["name"]))
+        lstAssetID.append (Tenable2AssetID(dictAsset["id"],dictAsset["name"]))
+
+      if strGroupName in dictAllValues:
+        strTagUUID = dictAllValues[strGroupName]
+        LogEntry ("Tag AgentGroups:{} has UUID {}".format(strGroupName,strTagUUID))
+      else:
+        LogEntry ("Creating a new value with name and members of the group")
+        strTagUUID = CreateTag(strGroupName,dictAllGroups[strGroupName])
+      
+      TagAssets(strTagUUID,lstAssetID)
     else:
-        LogEntry("Values is not a list, no idea what to do with this: {}".format(APIResponse),True)
-  else:
-    LogEntry ("Unepxected results: {}".format(APIResponse),True)
-
-  strMethod = "get"
-  strAPIFunction = "target-groups/"
-  strURL = strBaseURL + strAPIFunction
-  LogEntry("Now Pulling all Target Groups and transfering them to Tag Values")
-  APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-
-  if "target_groups" in APIResponse:
-    if isinstance(APIResponse["target_groups"],list):
-        iTGSize = len(APIResponse["target_groups"])
-        for dictTG in APIResponse["target_groups"]:
-          strType = dictTG["type"]
-          strMembers = dictTG["members"]
-          strName = dictTG["name"]
-          iLastModified = dictTG["last_modification_date"]
-          dtLastModified = formatUnixDate(iLastModified)
-          LogEntry ("Group {}:{} last updated {} which is {} ".format(strType,strName,iLastModified,dtLastModified))
-          if iLastModified > iLastRan:
-            LogEntry ("Group has been modified since last run")
-          else:
-            LogEntry ("No change since last run, skipping")
-            continue
-          if strName == "Default":
-            LogEntry ("Skipping the default group")
-            continue
-          lstMembers = strMembers.split(",")
-          iMemberCount = len(lstMembers)
-          if iMemberCount < iMaxMembers:
-            dictMembers = CheckMembers(lstMembers)
-          else:
-            LogEntry("Skipping this group, it has {} entries, which exceeds the max of {}".format(iMemberCount,iMaxMembers))
-            continue
-          strID = dictTG["id"]
-          dictCount[strName] = iMemberCount
-          LogEntry ("Processing group {} with ID {}. Contains {} entries. Group {} out of {}".format(strName,strID,iMemberCount,iRowCount,iTGSize))
-          dictPayload = {}
-          dictFilterObj = {}
-          dictFilters = {}
-          dictFilters["asset"] = {}
-          dictFilters["asset"]["or"] = []
-          if dictMembers["ipv4"] != "":
-            dictFilterObj["field"] = "ipv4"
-            dictFilterObj["operator"] = "eq"
-            dictFilterObj["value"] = dictMembers["ipv4"]
-            dictFilters["asset"]["or"].append(dictFilterObj.copy())
-          dictFilterObj = {}
-          if dictMembers["dns"] != "":
-            for strMember in dictMembers["dns"]:
-              dictFilterObj["field"] = "fqdn"
-              dictFilterObj["operator"] = "match"
-              dictFilterObj["value"] = strMember 
-              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
-              dictFilterObj["field"] = "netbios_name"
-              dictFilterObj["operator"] = "match"
-              dictFilterObj["value"] = strMember 
-              dictFilters["asset"]["or"].append(dictFilterObj.copy())      
-          dictPayload["filters"] = dictFilters
-          if strName in dictAllValues:
-            LogEntry ("Tag Value already exists, updating tag value with ID {}".format(dictAllValues[strName]))
-            strAPIFunction = "tags/values/{}".format(dictAllValues[strName])
-            strMethod = "put"
-            strAction = "update"
-          else:
-            LogEntry ("Creating a new value with name and members of the group")
-            dictPayload["category_name"] = strType + "TG"
-            dictPayload["value"] = strName
-            dictPayload["description"] = "Created by a sync script from Target Group ID {}".format(strID)
-            strMethod = "post"
-            strAPIFunction = "tags/values/"
-            strAction = "create"
-
-          strURL = strBaseURL + strAPIFunction
-          LogEntry("Submitting request to {}".format(strAction))
-          APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-          if isinstance(APIResponse,dict):
-            if "uuid" in APIResponse:
-              LogEntry("Tag Value {}d successfully. ID:{}".format(strAction, APIResponse["uuid"]))
-            else:
-              LogEntry("No UUID\n{}".format(APIResponse),True)
-          else:
-            LogEntry("Response for group {} with {} entries is not dictionary\n{}".format(strName, iMemberCount, APIResponse))
-          iRowCount += 1
-
+      LogEntry("Group {} does not meet criteria of starts with {} ".format(strGroupName,strFilter))
   LogEntry("Done!")
 
 if __name__ == '__main__':
