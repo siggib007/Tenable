@@ -26,34 +26,59 @@ iTimeOut = 120
 iMinQuiet = 2 # Minimum time in seconds between API calls
 ISO = time.strftime("-%Y-%m-%d-%H-%M-%S")
 
-def SendNotification (strMsg):
-  if not bNotifyEnabled:
-    return "notifications not enabled"
-  dictNotify = {}
-  dictNotify["token"] = strNotifyToken
-  dictNotify["channel"] = strNotifyChannel
-  dictNotify["text"]=strMsg[:199]
-  strNotifyParams = urlparse.urlencode(dictNotify)
-  strURL = strNotifyURL + "?" + strNotifyParams
-  bStatus = False
-  try:
-    WebRequest = requests.get(strURL,timeout=iTimeOut)
-  except Exception as err:
-    LogEntry ("Issue with sending notifications. {}".format(err))
-  if isinstance(WebRequest,requests.models.Response)==False:
-    LogEntry ("response is unknown type")
+
+
+def processConf(strConf_File):
+  LogEntry ("Looking for configuration file: {}".format(strConf_File))
+  if os.path.isfile(strConf_File):
+    LogEntry ("Configuration File exists")
   else:
-    dictResponse = json.loads(WebRequest.text)
-    if isinstance(dictResponse,dict):
-      if "ok" in dictResponse:
-        bStatus = dictResponse["ok"]
-        LogEntry ("Successfully sent slack notification\n{} ".format(strMsg))
-    if not bStatus or WebRequest.status_code != 200:
-      LogEntry ("Problme: Status Code:[] API Response OK={}")
-      LogEntry (WebRequest.text)
+    LogEntry ("Can't find configuration file {}, make sure it is the same directory "
+      "as this script and named the same with ini extension".format(strConf_File))
+    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
+    objLogOut.close()
+    sys.exit(9)
+
+  strLine = "  "
+  dictConfig = {}
+  LogEntry ("Reading in configuration")
+  objINIFile = open(strConf_File,"r")
+  strLines = objINIFile.readlines()
+  objINIFile.close()
+
+  for strLine in strLines:
+    strLine = strLine.strip()
+    iCommentLoc = strLine.find("#")
+    if iCommentLoc > -1:
+      strLine = strLine[:iCommentLoc].strip()
+    else:
+      strLine = strLine.strip()
+    if "=" in strLine:
+      strConfParts = strLine.split("=")
+      strVarName = strConfParts[0].strip()
+      strValue = strConfParts[1].strip()
+      dictConfig[strVarName] = strValue
+      if strVarName == "include":
+        LogEntry ("Found include directive: {}".format(strValue))
+        strValue = strValue.replace("\\","/")
+        if strValue[:1] == "/" or strValue[1:3] == ":/":
+          LogEntry("include directive is absolute path, using as is")
+        else:
+          strValue = strBaseDir + strValue
+          LogEntry("include directive is relative path,"
+            " appended base directory. {}".format(strValue))
+        if os.path.isfile(strValue):
+          LogEntry ("file is valid")
+          objINIFile = open(strValue,"r")
+          strLines += objINIFile.readlines()
+          objINIFile.close()
+        else:
+          LogEntry ("invalid file in include directive")
+
+  LogEntry ("Done processing configuration, moving on")
+  return dictConfig
 
 def CleanExit(strCause):
-  SendNotification("{} is exiting abnormally on {} {}".format(strScriptName,strScriptHost, strCause))
   objLogOut.close()
   print ("objLogOut closed")
   if objFileOut is not None:
@@ -73,86 +98,85 @@ def LogEntry(strMsg,bAbort=False):
   objLogOut.write("{0} : {1}\n".format(strTimeStamp,strMsg))
   print (strMsg)
   if bAbort:
-    SendNotification("{} on {}: {}".format (strScriptName,strScriptHost,strMsg[:99]))
     CleanExit("")
 
-def processConf():
-  global strBaseURL
-  global strUserName
-  global strPWD
-  global strNotifyURL
-  global strNotifyToken
-  global strNotifyChannel
-  global strHeader
-  global strFormat
-  global strFileout
-  global bNotifyEnabled
+# def processConf():
+#   global strBaseURL
+#   global strUserName
+#   global strPWD
+#   global strNotifyURL
+#   global strNotifyToken
+#   global strNotifyChannel
+#   global strHeader
+#   global strFormat
+#   global strFileout
+#   global bNotifyEnabled
 
-  strBaseURL=None
-  strUserName=None
-  strPWD=None
-  strNotifyURL=None
-  strNotifyToken=None
-  strNotifyChannel=None
-  strHeader=None
-  strFormat="%Y-%m-%dT%H:%M:%S"
-  strFileout=None
+#   strBaseURL=None
+#   strUserName=None
+#   strPWD=None
+#   strNotifyURL=None
+#   strNotifyToken=None
+#   strNotifyChannel=None
+#   strHeader=None
+#   strFormat="%Y-%m-%dT%H:%M:%S"
+#   strFileout=None
 
-  LogEntry ("Looking for configuration file: {}".format(strConf_File))
-  if os.path.isfile(strConf_File):
-    LogEntry ("Configuration File exists")
-  else:
-    LogEntry ("Can't find configuration file {}, make sure it is the same directory as this script".format(strConf_File))
-    LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
-    objLogOut.close()
-    sys.exit(9)
+#   LogEntry ("Looking for configuration file: {}".format(strConf_File))
+#   if os.path.isfile(strConf_File):
+#     LogEntry ("Configuration File exists")
+#   else:
+#     LogEntry ("Can't find configuration file {}, make sure it is the same directory as this script".format(strConf_File))
+#     LogEntry("{} on {}: Exiting.".format (strScriptName,strScriptHost))
+#     objLogOut.close()
+#     sys.exit(9)
 
-  strLine = "  "
-  LogEntry ("Reading in configuration")
-  objINIFile = open(strConf_File,"r")
-  strLines = objINIFile.readlines()
-  objINIFile.close()
+#   strLine = "  "
+#   LogEntry ("Reading in configuration")
+#   objINIFile = open(strConf_File,"r")
+#   strLines = objINIFile.readlines()
+#   objINIFile.close()
 
-  for strLine in strLines:
-    strLine = strLine.strip()
-    iCommentLoc = strLine.find("#")
-    if iCommentLoc > -1:
-      strLine = strLine[:iCommentLoc].strip()
-    else:
-      strLine = strLine.strip()
-    if "=" in strLine:
-      strConfParts = strLine.split("=")
-      strVarName = strConfParts[0].strip()
-      strValue = strConfParts[1].strip()
-      strConfParts = strLine.split("=")
-      if strVarName == "APIBaseURL":
-        strBaseURL = strValue
-      if strVarName == "AccessKey":
-        strUserName = strValue
-      if strVarName == "Secret":
-        strPWD = strValue
-      if strVarName == "NotificationURL":
-        strNotifyURL = strValue
-      if strVarName == "NotifyChannel":
-        strNotifyChannel = strValue
-      if strVarName == "NotifyToken":
-        strNotifyToken = strValue
-      if strVarName == "DateTimeFormat":
-        strFormat = strValue
-      if strVarName == "OutFile":
-        strFileout = strValue
+#   for strLine in strLines:
+#     strLine = strLine.strip()
+#     iCommentLoc = strLine.find("#")
+#     if iCommentLoc > -1:
+#       strLine = strLine[:iCommentLoc].strip()
+#     else:
+#       strLine = strLine.strip()
+#     if "=" in strLine:
+#       strConfParts = strLine.split("=")
+#       strVarName = strConfParts[0].strip()
+#       strValue = strConfParts[1].strip()
+#       strConfParts = strLine.split("=")
+#       if strVarName == "APIBaseURL":
+#         strBaseURL = strValue
+#       if strVarName == "AccessKey":
+#         strUserName = strValue
+#       if strVarName == "Secret":
+#         strPWD = strValue
+#       if strVarName == "NotificationURL":
+#         strNotifyURL = strValue
+#       if strVarName == "NotifyChannel":
+#         strNotifyChannel = strValue
+#       if strVarName == "NotifyToken":
+#         strNotifyToken = strValue
+#       if strVarName == "DateTimeFormat":
+#         strFormat = strValue
+#       if strVarName == "OutFile":
+#         strFileout = strValue
 
-  strHeader={'Content-type':'application/json','X-ApiKeys':'accessKey='+strUserName+';secretKey='+strPWD}
-  if strNotifyToken is None or strNotifyChannel is None or strNotifyURL is None:
-    bNotifyEnabled = False
-    LogEntry("Missing configuration items for Slack notifications, turning slack notifications off")
-  else:
-    bNotifyEnabled = True
+#   strHeader={'Content-type':'application/json','X-ApiKeys':'accessKey='+strUserName+';secretKey='+strPWD}
+#   if strNotifyToken is None or strNotifyChannel is None or strNotifyURL is None:
+#     bNotifyEnabled = False
+#     LogEntry("Missing configuration items for Slack notifications, turning slack notifications off")
+#   else:
+#     bNotifyEnabled = True
 
-  if strBaseURL[-1:] != "/":
-    strBaseURL += "/"
+#   if strBaseURL[-1:] != "/":
+#     strBaseURL += "/"
 
-  LogEntry ("Done processing configuration, moving on")
+#   LogEntry ("Done processing configuration, moving on")
 
 def isInt (CheckValue):
   # function to safely check if a value can be interpreded as an int
@@ -316,10 +340,56 @@ def main():
   objFileOut = None
   objHistory = None
 
+  dictConfig = processConf(strConf_File)
+
+  if "APIBaseURL" in dictConfig:
+    strBaseURL = dictConfig["APIBaseURL"]
+  else:
+    LogEntry("APIBaseURL not provided")
+  if "AccessKey" in dictConfig:
+    strUserName = dictConfig["AccessKey"]
+    strHeader={
+    'Content-type':'application/json',
+    'X-ApiKeys':'accessKey=' + dictConfig["AccessKey"] + ';secretKey=' + dictConfig["Secret"]}
+  else:
+    LogEntry("AccessKey not provided")
+  if "Secret" in dictConfig:
+    strPWD = dictConfig["Secret"]
+  else:
+    LogEntry("Secret not provided")
+  if "NotificationURL" in dictConfig:
+    strNotifyURL = dictConfig["NotificationURL"]
+  else:
+    LogEntry("NotificationURL not provided")
+  if "NotifyChannel" in dictConfig:
+    strNotifyChannel = dictConfig["NotifyChannel"]
+  else:
+    LogEntry("NotifyChannel not provided")
+  if "NotifyToken" in dictConfig:
+    strNotifyToken = dictConfig["NotifyToken"]
+  else:
+    LogEntry("NotifyToken not provided")
+  if "DateTimeFormat" in dictConfig:
+    strFormat = dictConfig["DateTimeFormat"]
+  else:
+    LogEntry("DateTimeFormat not provided")
+  if "OutFile" in dictConfig:
+    strFileout = dictConfig["OutFile"]
+  else:
+    LogEntry("OutFile not provided")
+
+
+  if "NotifyToken" in dictConfig and "NotifyChannel" in dictConfig and "NotificationURL" in dictConfig:
+    bNotifyEnabled = True
+  else:
+    bNotifyEnabled = False
+    LogEntry("Missing configuration items for Slack notifications, "
+      "turning slack notifications off")
+
   tLastCall = 0
   iTotalSleep = 0
   tStart=time.time()
-  processConf()
+  # processConf()
   dictResults={}
   strAPIFunction = "scans"
   strMethod = "get"
@@ -434,7 +504,6 @@ def main():
   LogEntry ("Took {0:.2f} seconds to complete, which is {1} hours, {2} minutes and {3:.2f} seconds.".format(
               iElapseSec,iHours,iMin,iSec))
 
-  # SendNotification ("{} completed successfully on {}".format(strScriptName, strScriptHost))
   objLogOut.close()
   objFileOut.close()
 
