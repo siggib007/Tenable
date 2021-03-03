@@ -464,7 +464,7 @@ def main():
   if len(lstOutMsg) > 0:
     strOut = "\n".join(lstOutMsg)
     SendNotification("{}- {}:\n{}".format(strScriptName, strConsole, strOut))
-  SendNotification("{} - {} completed successfully on {}".format(strScriptName, strConsole, strScriptHost))
+  SendNotification("{} - {}: {} completed successfully on {}".format(strScriptName, strConsole, strFunction, strScriptHost))
   objLogOut.close()
 
 if __name__ == '__main__':
