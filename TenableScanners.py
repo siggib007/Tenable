@@ -369,16 +369,18 @@ def ScannerDBUpdate(dictResults,dbConn):
             else:
               iAltServerID = lstReturn[1][0][0]
               strAltSource = "'tblMBServers'"
+              LogEntry ("MB: {} has an altID of {} in {}".format(strScannerName, iAltServerID, strAltSource))
 
             if iAltServerID == -13:
+              LogEntry("Checking vRA Table")
               strSQL = "select iServerID from tblVRAServers where vcHostName = {};".format(strScannerName)
               lstReturn = SQLQuery (strSQL,dbConn)
               if not ValidReturn(lstReturn):
                 LogEntry ("Unexpected: {}".format(lstReturn))
                 CleanExit("due to unexpected SQL return, please check the logs")
               elif lstReturn[0] == 0:
-                LogEntry ("Server {} not in MBserver table".format(strScannerName))
-                iAltServerID = -13
+                LogEntry ("Server {} not in vRA table".format(strScannerName))
+                iAltServerID = -14
               elif lstReturn[0] > 1:
                 SendNotification ("More than one instance of {} in MBserver table,"
                   " picking the first one".format(strScannerName))
@@ -389,7 +391,8 @@ def ScannerDBUpdate(dictResults,dbConn):
               else:
                 iAltServerID = lstReturn[1][0][0]
                 strAltSource = "'tblVRAServers'"
-            
+                LogEntry ("vRA: {} has an altID of {} in {}".format(strScannerName, iAltServerID, strAltSource))
+
             if iServerID > 0:
               strSQL = "select vcLocCode from tblServers where iServerID = {};".format(iServerID)
               lstReturn = SQLQuery (strSQL,dbConn)
@@ -548,6 +551,7 @@ def ScannerDBUpdate(dictResults,dbConn):
             if strNetName == "'Default'":
               strNetName = "'Magenta'"
             strLocation = "'{}'".format(strLocation)
+            LogEntry("Check if I need to upate or insert {} id {} altid {}, altsource{}".format(strScannerName,iServerID,iAltServerID,strAltSource))
             strSQL = "select vcStatus from tblTNBLscanners where iScannerID = '{}';".format(iScannerID)
             lstReturn = SQLQuery (strSQL,dbConn)
             if not ValidReturn(lstReturn):
