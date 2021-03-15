@@ -351,25 +351,45 @@ def ScannerDBUpdate(dictResults,dbConn):
               iServerID = lstReturn[1][0][0]
             LogEntry ("{} has ID of {}".format(strScannerName, iServerID))
 
-            if iServerID == -15:
-              strSQL = "select iMBServerID from tblMBServers where vcServerName = {};".format(strScannerName)
+            strSQL = "select iMBServerID from tblMBServers where vcServerName = {};".format(strScannerName)
+            lstReturn = SQLQuery (strSQL,dbConn)
+            if not ValidReturn(lstReturn):
+              LogEntry ("Unexpected: {}".format(lstReturn))
+              CleanExit("due to unexpected SQL return, please check the logs")
+            elif lstReturn[0] == 0:
+              LogEntry ("Server {} not in MBserver table".format(strScannerName))
+              iAltServerID = -13
+            elif lstReturn[0] > 1:
+              SendNotification ("More than one instance of {} in MBserver table,"
+                " picking the first one".format(strScannerName))
+              LogEntry ("More than one instance of {} in MBserver table,"
+                " picking the first one".format(strScannerName))
+              iAltServerID = lstReturn[1][0][0]
+              strAltSource = "'tblMBServers'"
+            else:
+              iAltServerID = lstReturn[1][0][0]
+              strAltSource = "'tblMBServers'"
+
+            if iAltServerID == -13:
+              strSQL = "select iServerID from tblVRAServers where vcHostName = {};".format(strScannerName)
               lstReturn = SQLQuery (strSQL,dbConn)
               if not ValidReturn(lstReturn):
                 LogEntry ("Unexpected: {}".format(lstReturn))
                 CleanExit("due to unexpected SQL return, please check the logs")
               elif lstReturn[0] == 0:
                 LogEntry ("Server {} not in MBserver table".format(strScannerName))
+                iAltServerID = -13
               elif lstReturn[0] > 1:
                 SendNotification ("More than one instance of {} in MBserver table,"
                   " picking the first one".format(strScannerName))
                 LogEntry ("More than one instance of {} in MBserver table,"
                   " picking the first one".format(strScannerName))
                 iAltServerID = lstReturn[1][0][0]
-                strAltSource = "'tblMBServers'"
+                strAltSource = "'tblVRAServers'"
               else:
                 iAltServerID = lstReturn[1][0][0]
-                strAltSource = "'tblMBServers'"
-
+                strAltSource = "'tblVRAServers'"
+            
             if iServerID > 0:
               strSQL = "select vcLocCode from tblServers where iServerID = {};".format(iServerID)
               lstReturn = SQLQuery (strSQL,dbConn)
@@ -405,7 +425,7 @@ def ScannerDBUpdate(dictResults,dbConn):
                     if dbRow[1] != "EIT" and dbRow[1] != "NMnet":
                       strScanIP = "'{}'".format(dbRow[0])
                       strScanType = "'{}'".format(dbRow[1].lower())
-            elif iAltServerID > 0:
+            elif iAltServerID > 0 and strAltSource == "'tblMBServers'" :
               strSQL = "select vcSite from tblMBServers where iMBServerID = {};".format(iAltServerID)
               lstReturn = SQLQuery (strSQL,dbConn)
               if not ValidReturn(lstReturn):
@@ -418,6 +438,20 @@ def ScannerDBUpdate(dictResults,dbConn):
               else:
                 strLocation = lstReturn[1][0][0]
                 LogEntry ("Location: {}".format(strLocation))
+            elif iAltServerID > 0 and strAltSource == "'tblVRAServers'" :
+              strSQL = "select vcSiteName from tblVRAServers where iServerID = {};".format(iAltServerID)
+              lstReturn = SQLQuery (strSQL,dbConn)
+              if not ValidReturn(lstReturn):
+                LogEntry ("Unexpected: {}".format(lstReturn))
+                CleanExit("due to unexpected SQL return, please check the logs")
+              elif lstReturn[0] == 0:
+                strLocation = "Unknown"
+                LogEntry ("Server {} with ID of {} not found in MBserver table".format(strScannerName, iAltServerID))
+                SendNotification ("Server {} with ID of {} not found in MBserver table".format(strScannerName, iAltServerID))
+              else:
+                strLocation = lstReturn[1][0][0]
+                LogEntry ("Location: {}".format(strLocation))
+
 
               strSQL = "select vcIPaddr, vcNetwork from tblMBNICs where iMBServerID = {};".format(iAltServerID)
               lstReturn = SQLQuery (strSQL,dbConn)
