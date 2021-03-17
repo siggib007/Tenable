@@ -32,6 +32,7 @@ def getInput(strPrompt):
       sys.exit()
 
 def SendNotification (strMsg):
+  LogEntry (strMsg)
   if not bNotifyEnabled:
     return "notifications not enabled"
   dictNotify = {}
@@ -457,6 +458,8 @@ def main():
           else:
             LogEntry ("{} {:.3%} complete".format(APIResponse["status"],fPercentage))
           time.sleep(iSecSleep)
+      else:
+        LogEntry("No status in response. Response was: {}".format(APIResponse))
     else:
       CleanExit("unhandled response:{}".format(APIResponse))
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
