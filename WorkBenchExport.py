@@ -30,8 +30,6 @@ def getInput(strPrompt):
     else:
       print("Please upgrade to Python 3")
       sys.exit()
-# end getInput
-
 
 def SendNotification (strMsg):
   if not bNotifyEnabled:
@@ -436,29 +434,31 @@ def main():
   while not bFinished:
     strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/status"
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
-    if "status" in APIResponse:
-      if APIResponse["status"] == "ready":
-        bFinished = True
-        LogEntry ("Download is ready.")
-      else:
-        if "progress" in APIResponse:
-          iProgress = float(APIResponse["progress"])
+    if isinstance(APIResponse,dict):
+      if "status" in APIResponse:
+        if APIResponse["status"] == "ready":
+          bFinished = True
+          LogEntry ("Download is ready.")
         else:
-          iProgress = 0
-        if "progress_total" in APIResponse:
-          iJobTotal = float(APIResponse["progress_total"])
-        else:
-          iJobTotal = 0
-        if iJobTotal > 0 and iJobTotal > iProgress:
-          fPercentage = iProgress / iJobTotal
-        else:
-          fPercentage = 0
-        if fPercentage == 0:
-          LogEntry ("{} {} / {} ".format(APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"]))
-        else:
-          LogEntry ("{} {:.3%} complete".format(APIResponse["status"],fPercentage))
-        time.sleep(iSecSleep)
-
+          if "progress" in APIResponse:
+            iProgress = float(APIResponse["progress"])
+          else:
+            iProgress = 0
+          if "progress_total" in APIResponse:
+            iJobTotal = float(APIResponse["progress_total"])
+          else:
+            iJobTotal = 0
+          if iJobTotal > 0 and iJobTotal > iProgress:
+            fPercentage = iProgress / iJobTotal
+          else:
+            fPercentage = 0
+          if fPercentage == 0:
+            LogEntry ("{} {} / {} ".format(APIResponse["status"],APIResponse["progress"],APIResponse["progress_total"]))
+          else:
+            LogEntry ("{} {:.3%} complete".format(APIResponse["status"],fPercentage))
+          time.sleep(iSecSleep)
+    else:
+      CleanExit("unhandled response:{}".format(APIResponse))
   strURL = strBaseURL + strAPIFunction + "/" + str(iFileID) + "/download"
 
   LogEntry ("Doing a stream GET to URL: \n {}\n".format(strURL))
@@ -484,6 +484,7 @@ def main():
   except Exception as err:
     LogEntry ("Unexpected issue: {}".format(err),True)
 
+  print ("\n")
   objFileOut.close()
   LogEntry ("Done!")
   objLogOut.close()
