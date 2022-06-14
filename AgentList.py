@@ -110,7 +110,6 @@ def processConf(strConf_File):
       if strVarName == "include":
         LogEntry ("Found include directive: {}".format(strValue))
         strValue = strValue.replace("\\","/")
-        # print (":1={}\n1:3={}".format(strValue[:1],strValue[1:3]))
         if strValue[:1] == "/" or strValue[1:3] == ":/":
           LogEntry("include directive is absolute path, using as is")
         else:
@@ -201,7 +200,6 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     time.sleep(iAddWait)
   iErrCode = ""
   iErrText = ""
-  dictResponse = {}
 
   LogEntry ("Doing a {} to URL: \n {}\n".format(strMethod,strURL))
   try:
@@ -230,8 +228,8 @@ def MakeAPICall (strURL, strHeader, strMethod,  dictPayload=""):
     iErrText = WebRequest.text
 
   if iErrCode != "" or WebRequest.status_code !=200:
-    return "There was a problem with your request. "
-    "HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText)
+    return ("There was a problem with your request. "
+    "HTTP error {} code {} {}".format(WebRequest.status_code,iErrCode,iErrText))
   else:
     try:
       return WebRequest.json()
@@ -361,10 +359,9 @@ def main():
     else:
       LogEntry("Invalid MinQuiet, setting to defaults of {}".format(iMinQuiet))
 
-  dictResults={}
   if strFileout is None or strFileout =="":
     LogEntry("outfile not define, using defaults")
-    strFileout = strOutDir + strScriptName[:iLoc] + "-" + strFunction + ISO + ".csv"
+    strFileout = strOutDir + strScriptName[:iLoc] + "-" + ISO + ".csv"
   else:
     if not os.path.exists(os.path.dirname(strFileout)):
       LogEntry ("\nPath '{0}' for output files didn't exists, "
