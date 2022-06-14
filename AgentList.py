@@ -378,6 +378,15 @@ def main():
   objFileOut.write("ID,UUID,Name,Platform,Distro,IP,PluginID,Core Build,"
     "Core Version,Linked On,Last Connected,Status,Groups\n")
 
+  iLoc = strFileout.rfind(".")
+  strRawout = strFileout[:iLoc] + "-raw.json"
+  LogEntry("Raw Output will be written to {}".format(strRawout))
+  try:
+    objRawOut = open(strRawout, "w")
+  except PermissionError:
+    LogEntry("unable to open output file {} for writing, "
+             "permission denied.".format(strFileout), True)
+
   lstSysArg = sys.argv
   iSysArgLen = len(lstSysArg)
   iTimeOut = 120
@@ -430,6 +439,7 @@ def main():
     else:
       strURL = strBaseURL + strAPIFunction
     APIResponse = MakeAPICall(strURL,strHeader,strMethod, dictPayload)
+    objRawOut.write(json.dumps(APIResponse))
     print ("Response is {} and has len of {}".format(type(APIResponse),len(APIResponse)))
     if "agents" in APIResponse:
       print ("Agent element is {} and has len of {}".format(
